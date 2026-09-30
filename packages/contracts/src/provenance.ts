@@ -136,11 +136,13 @@ export const SourceSnapshot = z
     if (fetchedPage !== (s.http !== null)) {
       ctx.addIssue({ code: 'custom', path: ['http'], message: 'HTTP metadata is present exactly for fetched pages' });
     }
-    if (fetchedPage !== (s.discoveredUrlId !== null)) {
+    // A fetched page references the discovered URL that authorised it. Snapshots outlive runs, so the
+    // reference is null once that run is deleted; `origin` keeps the reason.
+    if (!fetchedPage && s.discoveredUrlId !== null) {
       ctx.addIssue({
         code: 'custom',
         path: ['discoveredUrlId'],
-        message: 'a fetched page references the discovered URL that authorised it',
+        message: 'provider records are not authorised by a discovered URL',
       });
     }
     if (!fetchedPage && s.origin.kind !== 'provider_record') {

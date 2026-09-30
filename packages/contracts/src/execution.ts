@@ -126,6 +126,8 @@ export const AgentExecution = z
     agentVersion: z.string().min(1).max(40),
     promptHash: Sha256Hex,
     attempt: z.int().positive(),
+    /** The lease it ran under. Unique per task: a task handed back at shutdown keeps its attempt number. */
+    leaseToken: z.uuid(),
     status: ExecutionStatus,
     /** Validated against the agent's input schema before the execution starts. */
     input: JsonValue,
@@ -140,7 +142,6 @@ export const AgentExecution = z
       outputTokens: Count,
       costUsdMicros: UsdMicros,
     }),
-    retryOf: ExecutionId.nullable(),
     failure: Failure.nullable(),
     startedAt: Timestamp,
     endedAt: Timestamp.nullable(),

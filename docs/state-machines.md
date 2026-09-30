@@ -148,8 +148,8 @@ A run cannot reach `awaiting_plan_approval`, `running` or `completed` without a 
 
 ## Agent execution
 
-`running → succeeded | failed | abandoned`. `abandoned` means the lease was lost (crash or timeout). One execution
-per task attempt, `unique (task_id, attempt)`.
+`running → succeeded | failed | abandoned`. `abandoned` means the lease was lost (crash, timeout or shutdown). One execution
+per task lease, `unique (task_id, lease_token)`.
 
 ## Approval
 

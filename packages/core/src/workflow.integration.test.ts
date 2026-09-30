@@ -2,12 +2,25 @@
 // with row-level security on. Handlers are scripted: this tests orchestration, not agents.
 import { randomUUID } from 'node:crypto';
 import {
+  AgentType,
   ApprovalType,
+  CacheStatus,
+  ExecutionStatus,
+  ExtractionMethod,
+  LlmProviderKind,
+  LlmStopReason,
+  PublishedAtMethod,
+  RouteClass,
   RunEvent,
   RunStatus,
   TASK_DEFINITIONS,
   TaskStatus,
   TaskType,
+  ToolErrorCode,
+  ToolName,
+  SourceTier,
+  SourceType,
+  UrlOrigin,
   type Actor,
   type ApprovalId,
   type ArtifactId,
@@ -34,10 +47,12 @@ import { claimNextTask, recoverExpiredLeases } from './engine/queue';
 import { lockRun } from './engine/runs';
 import { recordSpend } from './engine/spend';
 import {
+  cancelTask,
   completeTask,
   failTaskAttempt,
   heartbeat,
   makeFailure,
+  releaseTask,
   startAttempt,
   type StartResult,
 } from './engine/transitions';
@@ -808,6 +823,50 @@ describe('leases', () => {
   });
 });
 
+describe('executions', () => {
+  async function openExecution(claimed: ClaimedTask) {
+    const { rows } = await h.admin.query<{ id: string }>(
+      `insert into public.agent_executions (workspace_id, run_id, task_id, agent, agent_version, prompt_hash, attempt,
+         lease_token, input, limits)
+       values ($1, $2, $3, 'planner', 'planner@1', $4, $5, $6, '{}', '{}') returning id`,
+      [owner.workspaceId, claimed.runId, claimed.taskId, sha256Hex('prompt'), claimed.attempt, claimed.leaseToken],
+    );
+    return rows[0]!.id;
+  }
+  async function execution(id: string) {
+    const { rows } = await h.admin.query<{ status: string; failure: { code: string } | null }>(
+      'select status, failure from public.agent_executions where id = $1',
+      [id],
+    );
+    return [rows[0]?.status, rows[0]?.failure?.code];
+  }
+
+  it('closes an execution its runtime never finished, with the reason the attempt ended', async () => {
+    const runId = await startedRun();
+    const first = await claim(runId);
+    await start(first);
+    const reaped = await openExecution(first);
+    await h.admin.query(`update public.tasks set lease_expires_at = now() - interval '1 second' where id = $1`, [
+      first.taskId,
+    ]);
+    await recoverExpiredLeases(h.db, 'it-reaper', WORKER, NO_BACKOFF);
+    expect(await execution(reaped)).toEqual(['abandoned', 'LEASE_EXPIRED']);
+
+    const second = await claim(runId);
+    await start(second);
+    const released = await openExecution(second);
+    await releaseTask(h.db, second, 'worker shutting down', WORKER);
+    expect(await execution(released)).toEqual(['abandoned', 'WORKER_SHUTDOWN']);
+
+    const third = await claim(runId);
+    await start(third);
+    const cancelled = await openExecution(third);
+    await cancelRun(h.db, user(owner), owner.workspaceId, { runId, reason: null });
+    await cancelTask(h.db, third, WORKER);
+    expect(await execution(cancelled)).toEqual(['abandoned', 'CANCELLED']);
+  });
+});
+
 describe('cancel and pause', () => {
   it('cancels waiting work at once and discards the result of a task that was running', async () => {
     const runId = await startedRun();
@@ -954,5 +1013,20 @@ describe('isolation and schema drift', () => {
     expect(await allowed('tasks', 'type')).toEqual(sorted(TaskType.options));
     expect(await allowed('approvals', 'type')).toEqual(sorted(ApprovalType.options));
     expect(await allowed('run_events', 'type')).toEqual(sorted(RunEvent.options.map((o) => o.shape.type.value)));
+    expect(await allowed('agent_executions', 'agent')).toEqual(sorted(AgentType.options));
+    expect(await allowed('agent_executions', 'status')).toEqual(sorted(ExecutionStatus.options));
+    expect(await allowed('llm_calls', 'provider')).toEqual(sorted(LlmProviderKind.options));
+    expect(await allowed('llm_calls', 'route')).toEqual(sorted(RouteClass.options));
+    expect(await allowed('llm_calls', 'cache_status')).toEqual(sorted(CacheStatus.options));
+    expect(await allowed('llm_calls', 'stop_reason')).toEqual(sorted(LlmStopReason.options));
+    expect(await allowed('tool_calls', 'tool')).toEqual(sorted(ToolName.options));
+    expect(await allowed('tool_calls', 'error_code')).toEqual(sorted(ToolErrorCode.options));
+    expect(await allowed('discovered_urls', 'origin_kind')).toEqual(
+      sorted(UrlOrigin.options.map((o) => o.shape.kind.value)),
+    );
+    expect(await allowed('sources', 'source_type')).toEqual(sorted(SourceType.options));
+    expect(await allowed('sources', 'tier')).toEqual(sorted(SourceTier.options));
+    expect(await allowed('sources', 'published_at_method')).toEqual(sorted(PublishedAtMethod.options));
+    expect(await allowed('sources', 'extraction_method')).toEqual(sorted(ExtractionMethod.options));
   });
 });

@@ -25,6 +25,40 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface AgentExecutions {
+  agent: string;
+  agent_version: string;
+  attempt: number;
+  cost_usd_micros: Generated<Int8>;
+  ended_at: Timestamp | null;
+  failure: Json | null;
+  id: Generated<string>;
+  input: Json;
+  input_tokens: Generated<Int8>;
+  lease_token: string;
+  limits: Json;
+  llm_calls: Generated<number>;
+  output: Json | null;
+  output_tokens: Generated<Int8>;
+  prompt_hash: string;
+  run_id: string;
+  started_at: Generated<Timestamp>;
+  status: Generated<string>;
+  task_id: string;
+  tool_calls: Generated<number>;
+  turns: Generated<number>;
+  workspace_id: string;
+}
+
+export interface AgentMessages {
+  content: Json;
+  created_at: Generated<Timestamp>;
+  execution_id: string;
+  role: string;
+  seq: number;
+  workspace_id: string;
+}
+
 export interface Approvals {
   decided_at: Timestamp | null;
   decided_by: string | null;
@@ -57,6 +91,46 @@ export interface AuditLogs {
   metadata: Generated<Json>;
   target_id: string | null;
   target_type: string | null;
+  workspace_id: string;
+}
+
+export interface DiscoveredUrls {
+  discovered_at: Generated<Timestamp>;
+  id: Generated<string>;
+  normalized_url: string;
+  normalized_url_hash: string;
+  origin: Json;
+  origin_kind: string;
+  run_id: string;
+  url: string;
+  workspace_id: string;
+}
+
+export interface LlmCalls {
+  cache_read_tokens: Int8 | null;
+  cache_status: string;
+  cache_write_tokens: Int8 | null;
+  cost_usd_micros: Int8;
+  execution_id: string;
+  failure: Json | null;
+  id: string;
+  input_tokens: Int8;
+  latency_ms: number;
+  model: string;
+  output_tokens: Int8;
+  prompt_version: string;
+  provider: string;
+  provider_account: string;
+  reasoning_tokens: Int8 | null;
+  request_hash: string;
+  retry_count: number;
+  route: string;
+  routing_config_version: string;
+  run_id: string;
+  seq: number;
+  started_at: Timestamp;
+  stop_reason: string;
+  task_id: string;
   workspace_id: string;
 }
 
@@ -107,6 +181,38 @@ export interface Runs {
   workspace_id: string;
 }
 
+export interface Sources {
+  canonical_url: string | null;
+  content_sha256: string;
+  created_at: Generated<Timestamp>;
+  discovered_url_id: string | null;
+  extraction_method: string;
+  extractor_version: string;
+  fetched_by_tool_call_id: string;
+  final_url: string;
+  final_url_hash: string;
+  flags: Generated<string[]>;
+  host: string;
+  http: Json | null;
+  id: Generated<string>;
+  language: string | null;
+  origin: Json;
+  published_at: Timestamp | null;
+  published_at_method: string;
+  publisher: string | null;
+  raw_sha256: string;
+  registrable_domain: string;
+  requested_url: string;
+  retrieved_at: Timestamp;
+  source_type: string;
+  text: string;
+  text_length: number;
+  tier: string;
+  title: string | null;
+  truncated: boolean;
+  workspace_id: string;
+}
+
 export interface TaskDependencies {
   created_at: Generated<Timestamp>;
   depends_on_task_id: string;
@@ -143,6 +249,27 @@ export interface Tasks {
   workspace_id: string;
 }
 
+export interface ToolCalls {
+  arguments: Json;
+  arguments_hash: string;
+  cache_hit: Generated<boolean>;
+  cost_usd_micros: Generated<Int8>;
+  created_source_ids: Generated<string[]>;
+  error_code: string | null;
+  execution_id: string;
+  id: string;
+  latency_ms: number;
+  model_tool_call_id: string | null;
+  provider: string | null;
+  run_id: string;
+  started_at: Timestamp;
+  status: string;
+  task_id: string;
+  tool: string;
+  upstream_latency_ms: number | null;
+  workspace_id: string;
+}
+
 export interface WorkspaceMembers {
   created_at: Generated<Timestamp>;
   role: string;
@@ -158,13 +285,19 @@ export interface Workspaces {
 }
 
 export interface DB {
+  agent_executions: AgentExecutions;
+  agent_messages: AgentMessages;
   approvals: Approvals;
   audit_logs: AuditLogs;
+  discovered_urls: DiscoveredUrls;
+  llm_calls: LlmCalls;
   projects: Projects;
   run_events: RunEvents;
   runs: Runs;
+  sources: Sources;
   task_dependencies: TaskDependencies;
   tasks: Tasks;
+  tool_calls: ToolCalls;
   workspace_members: WorkspaceMembers;
   workspaces: Workspaces;
 }

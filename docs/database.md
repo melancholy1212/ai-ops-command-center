@@ -44,8 +44,9 @@ Kysely using types generated from the database; the browser reads through Supaba
   can commit out of order and would leave gaps for a reconnecting client).
 
 ### Execution and telemetry
-- `agent_executions`: agent, agent_version, prompt_hash, attempt (`unique (task_id, attempt)`), status, input,
-  output, limits, usage columns, retry_of, failure, started_at, ended_at.
+- `agent_executions`: agent, agent_version, prompt_hash, attempt, lease_token (`unique (task_id, lease_token)`: a
+  task handed back at shutdown keeps its attempt number, so the lease identifies the execution), status, input,
+  output, limits, usage columns, failure, started_at, ended_at.
 - `agent_messages` (execution_id, seq, role, content JSONB; PK both). Tool results carrying page text store a
   reference to the snapshot range, not a copy. Pruned after the retention period.
 - `llm_calls`: every field of the `LlmCall` contract; `unique (execution_id, seq)`.

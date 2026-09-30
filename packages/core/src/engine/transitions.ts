@@ -15,6 +15,7 @@ import { evaluateBudget, TASK_COST_ESTIMATES } from '../budget';
 import { DomainError, TaskFailure } from '../errors';
 import { insertApprovals, requestBudgetExtension } from './approvals';
 import { appendEvent } from './events';
+import { abandonOpenExecutions } from './executions';
 import { CLEARED_LEASE, createTasks, lockLeasedTask, settleRun, type TaskRow } from './graph';
 import { isTerminal, lockRun, recomputeRunStatus, runBudget, runSpend, type RunRow } from './runs';
 import type { ClaimedTask, CreatedRefs, EngineOptions, TaskOutcome } from './types';
@@ -95,6 +96,7 @@ export async function releaseLeasedTask(
   reason: string,
 ) {
   const attempt = Math.max(0, task.attempt - 1);
+  await abandonOpenExecutions(tx, task.id, makeFailure('WORKER_SHUTDOWN', `Handed back: ${reason}.`, true));
   await setTaskStatus(
     tx,
     run,
@@ -108,10 +110,9 @@ export async function releaseLeasedTask(
 }
 
 export async function cancelLeasedTask(tx: WorkspaceTransaction, run: RunRow, task: TaskRow, actor: Actor) {
-  await setTaskStatus(tx, run, task, actor, 'cancelled', {
-    ...CLEARED_LEASE,
-    last_failure: toJson(makeFailure('CANCELLED', 'The run was cancelled.', false)),
-  });
+  const failure = makeFailure('CANCELLED', 'The run was cancelled.', false);
+  await abandonOpenExecutions(tx, task.id, failure);
+  await setTaskStatus(tx, run, task, actor, 'cancelled', { ...CLEARED_LEASE, last_failure: toJson(failure) });
   await recomputeRunStatus(tx, run, actor);
 }
 
@@ -254,6 +255,7 @@ export async function failTaskAttempt(
   return withWorkspace(db, claim.workspaceId, async (tx) => {
     const run = await lockRun(tx, claim.runId);
     const task = await lockLeasedTask(tx, claim.taskId, claim.leaseToken);
+    await abandonOpenExecutions(tx, task.id, failure);
     if (leaseExpired) {
       await appendEvent(tx, run, actor, {
         type: 'task.lease_expired',
