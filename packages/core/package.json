@@ -16,6 +16,7 @@
     "@aoc/contracts": "workspace:*",
     "@aoc/db": "workspace:*",
     "kysely": "0.29.6",
+    "tldts": "7.4.16",
     "zod": "4.6.5"
   },
   "devDependencies": {

@@ -4,6 +4,7 @@ export * from './canonical-json';
 export * from './errors';
 export * from './graph';
 export * from './run-status';
+export * as verification from './verification';
 export * from './engine/types';
 export { claimNextTask, recoverExpiredLeases, type ClaimOptions } from './engine/queue';
 export {

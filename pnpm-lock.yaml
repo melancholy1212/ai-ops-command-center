@@ -430,6 +430,9 @@ importers:
       kysely:
         specifier: 0.29.6
         version: 0.29.6
+      tldts:
+        specifier: 7.4.16
+        version: 7.4.16
       zod:
         specifier: 4.6.5
         version: 4.6.5
