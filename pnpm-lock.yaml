@@ -270,6 +270,12 @@ importers:
       '@aoc/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@aoc/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aoc/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@aoc/db':
         specifier: workspace:*
         version: link:../../packages/db

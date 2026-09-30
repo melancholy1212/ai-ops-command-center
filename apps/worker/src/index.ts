@@ -1,16 +1,22 @@
 /**
- * Worker process. Phase 1 skeleton: validates its environment, keeps a live database check,
- * serves /healthz, and shuts down cleanly on SIGTERM. The scheduler (claim, lease, heartbeat,
- * reap, expand) arrives in Phase 2; until then this process does not execute tasks.
+ * Worker process: validates its environment, keeps a live database check for /healthz, and runs the
+ * scheduler (claim, lease, heartbeat, lease recovery). SIGTERM stops claiming, lets running handlers
+ * finish within the grace period and hands the rest back to the queue.
  */
 import { createLogger } from '@aoc/config/logger';
 import { createDb, ping } from '@aoc/db';
 import { loadEnv } from './env';
+import { handlers } from './handlers';
 import { healthReport, startHealthServer, type HealthState } from './health';
+import { createScheduler } from './scheduler';
 
 const env = loadEnv();
 const log = createLogger('worker', env.LOG_LEVEL);
-const db = createDb(env.DATABASE_URL, { applicationName: `worker:${env.WORKER_ID}`, maxConnections: 5 });
+// One connection per concurrent task, plus the claim loop, heartbeats and the reaper.
+const db = createDb(env.DATABASE_URL, {
+  applicationName: `worker:${env.WORKER_ID}`,
+  maxConnections: env.WORKER_CONCURRENCY + 3,
+});
 
 const state: HealthState = {
   service: 'worker',
@@ -33,16 +39,31 @@ async function checkDatabase(): Promise<void> {
 const server = startHealthServer(env.HEALTH_PORT, () => healthReport(state, Date.now(), env.HEARTBEAT_INTERVAL_MS * 3));
 await checkDatabase();
 const timer = setInterval(() => void checkDatabase(), env.HEARTBEAT_INTERVAL_MS);
-log.info({ workerId: env.WORKER_ID, healthPort: env.HEALTH_PORT }, 'worker started (no task processing until Phase 2)');
+
+const scheduler = createScheduler({
+  db,
+  workerId: env.WORKER_ID,
+  handlers,
+  log,
+  concurrency: env.WORKER_CONCURRENCY,
+  leaseSeconds: env.TASK_LEASE_SECONDS,
+  heartbeatIntervalMs: env.HEARTBEAT_INTERVAL_MS,
+});
+if (Object.keys(handlers).length === 0) {
+  log.warn('no task handlers are registered yet: this worker only recovers expired leases');
+}
+scheduler.start();
+log.info({ workerId: env.WORKER_ID, healthPort: env.HEALTH_PORT }, 'worker started');
 
 let shuttingDown = false;
 async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
   log.info({ signal }, 'shutting down');
-  clearInterval(timer);
-  const forceExit = setTimeout(() => process.exit(1), 10_000);
+  const forceExit = setTimeout(() => process.exit(1), 20_000);
   forceExit.unref();
+  await scheduler.stop();
+  clearInterval(timer);
   await new Promise<void>((resolve) =>
     server.close(() => {
       resolve();

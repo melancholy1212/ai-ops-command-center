@@ -769,7 +769,8 @@ describe('leases', () => {
       zombie.taskId,
     ]);
 
-    expect(await recoverExpiredLeases(h.db, 'it-reaper', WORKER, NO_BACKOFF)).toBe(1);
+    // Asserted by state, not by count: a local `pnpm dev` worker may recover the lease first.
+    await recoverExpiredLeases(h.db, 'it-reaper', WORKER, NO_BACKOFF);
     const [task] = (await taskRows(runId)).filter((t) => t.id === zombie.taskId);
     expect([task?.status, task?.last_failure?.code, task?.lease_token]).toEqual(['ready', 'LEASE_EXPIRED', null]);
     const expired = (await events(runId)).find((e) => e.type === 'task.lease_expired');

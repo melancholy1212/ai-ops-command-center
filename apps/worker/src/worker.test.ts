@@ -13,6 +13,12 @@ describe('worker env', () => {
   it('refuses to start without a database URL', () => {
     expect(() => loadEnv({})).toThrow(EnvValidationError);
   });
+
+  it('refuses a heartbeat interval longer than half the lease', () => {
+    const base = { DATABASE_URL: 'postgresql://aoc_service:x@127.0.0.1:55322/postgres', TASK_LEASE_SECONDS: '60' };
+    expect(() => loadEnv({ ...base, HEARTBEAT_INTERVAL_MS: '31000' })).toThrow(EnvValidationError);
+    expect(loadEnv({ ...base, HEARTBEAT_INTERVAL_MS: '30000' }).HEARTBEAT_INTERVAL_MS).toBe(30_000);
+  });
 });
 
 describe('healthReport', () => {

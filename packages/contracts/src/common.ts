@@ -97,6 +97,7 @@ export type FailureClass = z.infer<typeof FailureClass>;
 
 export const FailureCode = z.enum([
   'LEASE_EXPIRED', // the worker holding the task stopped heartbeating
+  'TASK_TIMEOUT', // the handler ran past the worker's time limit for one attempt
   'PROVIDER_RATE_LIMITED', // an LLM or data provider throttled us after in-call retries
   'PROVIDER_UNAVAILABLE', // 5xx, network error or timeout after in-call retries
   'LLM_OUTPUT_INVALID', // output still failed its schema after repair turns
@@ -115,6 +116,7 @@ export type FailureCode = z.infer<typeof FailureCode>;
 
 export const FAILURE_CLASS = {
   LEASE_EXPIRED: 'transient',
+  TASK_TIMEOUT: 'transient',
   PROVIDER_RATE_LIMITED: 'transient',
   PROVIDER_UNAVAILABLE: 'transient',
   LLM_OUTPUT_INVALID: 'permanent',

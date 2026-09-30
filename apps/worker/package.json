@@ -8,10 +8,13 @@
     "build": "tsup",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run integration"
   },
   "dependencies": {
     "@aoc/config": "workspace:*",
+    "@aoc/contracts": "workspace:*",
+    "@aoc/core": "workspace:*",
     "@aoc/db": "workspace:*",
     "kysely": "0.29.6",
     "pg": "8.23.0",
