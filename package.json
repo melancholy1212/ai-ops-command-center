@@ -20,7 +20,8 @@
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
     "db:types": "pnpm --filter @aoc/db generate:types",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "setup:local": "node scripts/setup-local-env.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
