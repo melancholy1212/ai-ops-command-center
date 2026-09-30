@@ -84,6 +84,8 @@ const files = {
     NEXT_PUBLIC_SUPABASE_URL: status.API_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: status.PUBLISHABLE_KEY,
     ALLOWED_DEV_ORIGINS: lanAddresses.join(','),
+    // Server side only (never NEXT_PUBLIC_): commands such as start run and approve go through packages/core.
+    DATABASE_URL: db.toString(),
   },
   'apps/worker/.env.local': {
     DATABASE_URL: db.toString(),

@@ -8,16 +8,21 @@
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
-    "gen:types": "supabase gen types typescript --local --schema public --workdir ../.. > src/lib/supabase/database.types.ts"
+    "test": "vitest run --passWithNoTests --exclude '**/*.integration.test.ts'",
+    "gen:types": "supabase gen types typescript --local --schema public --workdir ../.. > src/lib/supabase/database.types.ts",
+    "test:integration": "vitest run integration --no-file-parallelism"
   },
   "dependencies": {
     "@aoc/config": "workspace:*",
+    "@aoc/contracts": "workspace:*",
+    "@aoc/core": "workspace:*",
+    "@aoc/db": "workspace:*",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.117.2",
     "next": "16.3.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "server-only": "0.0.1",
     "zod": "4.6.5"
   },
   "devDependencies": {

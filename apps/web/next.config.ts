@@ -16,8 +16,9 @@ const allowedDevOrigins = (process.env.ALLOWED_DEV_ORIGINS ?? '')
 
 const nextConfig: NextConfig = {
   allowedDevOrigins,
-  // Workspace packages are TypeScript source.
-  transpilePackages: ['@aoc/config', '@aoc/contracts'],
+  // Workspace packages are TypeScript source. Commands run on the server through @aoc/core and @aoc/db.
+  transpilePackages: ['@aoc/config', '@aoc/contracts', '@aoc/core', '@aoc/db'],
+  serverExternalPackages: ['pg'],
   poweredByHeader: false,
   reactStrictMode: true,
   headers() {
