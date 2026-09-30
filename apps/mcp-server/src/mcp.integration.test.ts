@@ -42,7 +42,8 @@ const paragraphs = Array.from(
 const pages: Record<string, string> = {
   [ARTICLE_URL]: `<html><head><title>Northwind raises seed</title><meta property="article:published_time" content="2026-03-12T08:00:00Z"></head>
     <body><article><h1>Northwind raises seed</h1>${paragraphs}<a href="https://northwind.example/about">About Northwind</a></article></body></html>`,
-  'https://northwind.example/about': `<html><body><article><h1>About</h1>${paragraphs}</article></body></html>`,
+  // Characters outside the Basic Multilingual Plane (an emoji) count once in Postgres and twice in JavaScript.
+  'https://northwind.example/about': `<html><body><article><h1>About ${String.fromCodePoint(0x1f331)}</h1>${paragraphs}</article></body></html>`,
 };
 
 const search: SearchProvider = {

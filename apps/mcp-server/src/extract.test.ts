@@ -98,6 +98,15 @@ describe('extractPage', () => {
     expect([long.textLength, long.truncated]).toEqual([400_000, true]);
   });
 
+  it('counts characters the way Postgres does, so emoji do not break the length check', () => {
+    const rocket = String.fromCodePoint(0x1f680);
+    const page = extractPage(Buffer.from(`Launch ${rocket} day`), 'text/plain', 'https://a.example/r.txt', now);
+    expect(page.text).toBe(`Launch ${rocket} day`);
+    expect([page.textLength, page.text.length]).toEqual([12, 13]);
+    const long = extractPage(Buffer.from(rocket.repeat(400_001)), 'text/plain', 'https://a.example/big.txt', now);
+    expect([long.textLength, long.truncated, long.text.endsWith(rocket)]).toEqual([400_000, true, true]);
+  });
+
   it('decodes the declared charset', () => {
     const latin1 = Buffer.from('<html><body><p>Café Zürich</p></body></html>', 'latin1');
     expect(extractPage(latin1, 'text/html; charset=iso-8859-1', 'https://a.example/', now).text).toContain(

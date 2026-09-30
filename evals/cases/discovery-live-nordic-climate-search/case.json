@@ -1,0 +1,43 @@
+{
+  "id": "discovery-live-nordic-climate-search",
+  "title": "Discovery on the real web with live search: Nordic climate software seed rounds (live only; traced, not recorded into the repo)",
+  "tags": ["coverage", "egress"],
+  "scope": "discover_companies",
+  "synthetic": false,
+  "modes": ["live"],
+  "input": {
+    "objective": "Find seed-stage climate software startups in the Nordics that raised money in the last 12 months.",
+    "briefOverride": {
+      "sectorKeywords": ["climate software", "climate tech", "carbon accounting", "energy software"],
+      "countries": ["SE", "NO", "DK", "FI", "IS"],
+      "fundingWindow": {
+        "from": "2025-09-30",
+        "to": "2026-09-30"
+      },
+      "fundingStages": ["pre_seed", "seed"],
+      "maxCompanies": 3,
+      "peopleRoles": ["founder", "ceo"],
+      "outreach": {
+        "enabled": false,
+        "maxCompanies": 0
+      }
+    },
+    "seedUrls": [],
+    "frozenNow": "2026-09-30T12:00:00.000Z"
+  },
+  "fixtures": {
+    "tools": "tools.json",
+    "model": "model.json"
+  },
+  "expect": {
+    "companies": [],
+    "forbiddenCompanies": [],
+    "forbiddenHosts": ["169.254.169.254"],
+    "limits": {
+      "maxCostUsdMicros": 500000,
+      "maxLlmCalls": 14,
+      "maxToolCalls": 30,
+      "maxWallClockMs": 900000
+    }
+  }
+}

@@ -112,12 +112,20 @@ function tidy(text: string): string {
     .trim();
 }
 
+/** Length in Unicode code points: what Postgres' char_length counts. */
+export function characterCount(text: string): number {
+  return Array.from(text).length;
+}
+
 function finalise(raw: string): { text: string; truncated: boolean; hadInvisible: boolean } {
   const hadInvisible = INVISIBLE.test(raw);
   INVISIBLE.lastIndex = 0;
   const clean = raw.replace(INVISIBLE, '').normalize('NFC');
-  const truncated = clean.length > MAX_TEXT_CHARS;
-  return { text: truncated ? clean.slice(0, MAX_TEXT_CHARS) : clean, truncated, hadInvisible };
+  // Characters are Unicode code points, as Postgres counts them; JavaScript's length counts UTF-16 units, so an
+  // emoji would count twice and a plain slice could cut one in half.
+  const characters = Array.from(clean);
+  const truncated = characters.length > MAX_TEXT_CHARS;
+  return { text: truncated ? characters.slice(0, MAX_TEXT_CHARS).join('') : clean, truncated, hadInvisible };
 }
 
 function absoluteUrl(href: string, base: string): string | null {
@@ -218,7 +226,7 @@ export function extractPage(body: Buffer, contentType: string, finalUrl: string,
     return {
       title: null,
       text,
-      textLength: text.length,
+      textLength: characterCount(text),
       truncated,
       method: 'plain_text',
       canonicalUrl: null,
@@ -257,7 +265,7 @@ export function extractPage(body: Buffer, contentType: string, finalUrl: string,
   return {
     title: title ? title.slice(0, 500) : null,
     text,
-    textLength: text.length,
+    textLength: characterCount(text),
     truncated,
     method: 'readability_html',
     canonicalUrl,
