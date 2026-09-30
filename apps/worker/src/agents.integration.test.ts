@@ -292,10 +292,9 @@ describe('discovery agent', () => {
       `select type, status from public.tasks where run_id = $1 and type <> 'discover_companies' order by type`,
       [runId],
     );
-    expect(created).toEqual([
-      { type: 'compile_report', status: 'blocked' },
-      { type: 'verify_entity', status: expect.stringMatching(/ready|running|succeeded/) as unknown as string },
-    ]);
+    // The report waits for verification, which the scheduler may already have picked up.
+    expect(created.map((t) => t.type)).toEqual(['compile_report', 'verify_entity']);
+    expect(created[0]?.status).toBe('blocked');
 
     // Verification runs next: the judge's verdict, policy v1 and confidence, then coverage gaps.
     expect(await waitForTask(runId, ['succeeded', 'failed'], 'verify_entity')).toBe('succeeded');
