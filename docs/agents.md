@@ -44,6 +44,19 @@ can't work in this execution (non-retryable `PROVIDER_UNAVAILABLE`, e.g. no sear
 may cite only sources the model read in the same execution, checked before it is accepted; the run budget is checked
 before every model call, and running out mid-attempt pauses the run for an extension instead of failing the task.
 
+Added in Phase 4, from live runs through the UI:
+- **Pacing.** A role can declare that a tool is withheld after N calls without a successful call of another (not
+  offered, refused if called anyway) and the model is told why. Discovery pauses `web_search` after 2 searches without
+  a page read; reading a page restores it. The model had been searching until its turns ran out without opening a
+  single result.
+- **Nudge.** A model that stops early is invited to keep working (open other results, try other words) or submit; the
+  forced submit comes second.
+- **Advisory checks** can send a result back at most once, and only with turns and tool calls left: discovery sends
+  back an empty result when search found results but no page was read. They never turn an honest result into a failure.
+- **Salvage.** When no repair turn is left, a role can keep the valid part of a result: discovery drops claims and
+  quotes that cite sources not read in the execution, records every drop, and still fails if nothing valid remains
+  (a failed result is never passed off as an empty one).
+
 Every turn is persisted as it happens (`agent_messages`, `llm_calls`, `tool_calls`). Conversations are append-only:
 history is never rewritten mid-loop (current Claude models reject edited history on newer API accounts). Context size
 is controlled by small tool results (page chunks, with `get_source` to read further) and bounded turns. Tool results
@@ -63,7 +76,8 @@ post-processing. No tools, no loop.
 ### Research
 - **Tasks:** `discover_companies` (criteria → candidates), `gap_fill` (named gaps → claims).
 - **Output:** `ProposedClaim[]` (discovery uses `new_company` subjects with a domain hint).
-- **Limits:** discovery 12 turns / 30 tool calls; gap-fill 8 turns / 20 tool calls.
+- **Limits:** discovery 20 turns / 30 tool calls, `web_search` paced at 2 per page read; gap-fill 8 turns / 20 tool
+  calls.
 - **Code after:** drop candidates without grounded evidence; deterministic pre-score for expansion.
 
 ### Company Intelligence
@@ -83,12 +97,15 @@ post-processing. No tools, no loop.
   feedback from a previous revision.
 - **Output:** `InterpretedCriteria`, `Assumption[]`, open questions.
 - **Code after:** region names → country lists, date window validation, limits clamped, cost estimate added.
+- **Implemented** as `planner@1` (structured call on the planning route); `normalizePlan` and `planSnapshot` in
+  `packages/core/src/workflow/plan.ts`.
 
 ### Verifier
 - **Input:** batches of `{claim statement, quote, ±300 characters of surrounding snapshot text}` prepared by code.
   Only grounded quotes reach it.
 - **Output:** one `JudgeVerdict` + short reason per item.
 - Everything else in verification is code ([provenance.md](provenance.md#verification)).
+- **Implemented** as `verifier@1` (judge route, batches of 20, every index answered exactly once or repaired).
 
 ### Analyst
 - **Input:** per company: verified/probable claim statements with ids, the score breakdown computed by code, the criteria.

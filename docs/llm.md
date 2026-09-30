@@ -112,7 +112,9 @@ Without an API key the adapter is tested against recorded responses only.
 **Implemented in `packages/llm`** (Phase 3): both adapters call the official SDKs with SDK retries turned off, and
 share one in-call retry policy, so `retryCount` is exact and both providers behave the same. Calls are
 non-streaming (usage comes with the response). A response without token usage is refused (`invalid_request`)
-rather than recorded as free. `test:live` checks the OpenAI-compatible adapter against Earthruntime; the Anthropic
+rather than recorded as free. Account problems are not provider trouble: 401/403 (`auth`) and 402 (`billing`, credit
+or quota used up) fail the task with `PROVIDER_ACCOUNT` and are not retried; only rate limits and 5xx/network errors are
+retried and can fall back to another binding. `test:live` checks the OpenAI-compatible adapter against Earthruntime; the Anthropic
 adapter is tested against recorded HTTP responses until an `ANTHROPIC_API_KEY` exists.
 
 ## Structured output strategy

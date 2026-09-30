@@ -16,20 +16,20 @@ Finding → Claim → Evidence → Source snapshot → exact quote
 
 ## Status
 
-**Phase 3 (tools, LLM layer, first agent) is complete.** Each phase ends with typecheck, lint, tests, build and CI green before the
-next begins.
+**Phase 4 (evidence, verification, planner, report, run view) is built; its grounding and verification eval cases are
+still to come.** Each phase ends with typecheck, lint, tests, build and CI green before the next begins.
 
 | Area | Built | Not yet |
 |---|---|---|
 | Monorepo | pnpm 12 + Turborepo, strict TypeScript 6.0, ESLint 10, Prettier, Vitest, CI | — |
 | Contracts | Zod schemas for runs, tasks, executions, claims, evidence, approvals, findings, MCP tools, events | — |
-| Database | Workspaces, members, projects; runs, tasks, dependencies, approvals, run events, audit log; agent executions, messages, model and tool calls; discovered URLs and source snapshots; rate limits; row-level security for users and for the backend role; pgTAP + integration tests | Claims, evidence, findings (Phase 4+) |
-| Workflow engine | Durable task graph with fenced leases, heartbeats, lease recovery, retries with backoff, hard/soft dependencies, idempotent expansion, cycle rejection, cancel/pause/resume, budgets with extension approvals, hash-checked human approvals, plan replanning | Real task handlers (Phase 3+) |
-| Web | Supabase email/password auth, session refresh, dashboard shell | Runs, graph, evidence, approvals UI (Phases 2–6) |
-| Worker | Scheduler (concurrent claims, heartbeats, time limits, lease recovery, graceful shutdown); agent runtime (bounded tool loop, capability tokens, full telemetry); Research agent for discovery | Planner, verifier, company and people agents, analyst, writer (Phases 4–5) |
+| Database | Workspaces, members, projects; runs, tasks, dependencies, approvals, run events, audit log; agent executions, messages, model and tool calls; discovered URLs and source snapshots; rate limits; companies, claims, evidence (immutable, judge fields only), research gaps, findings, versioned artifacts; row-level security for users and for the backend role; pgTAP + integration tests | People, registry identifiers (Phase 5) |
+| Workflow engine | Durable task graph with fenced leases, heartbeats, lease recovery, retries with backoff, hard/soft dependencies, idempotent expansion, cycle rejection, cancel/pause/resume, budgets with extension approvals, hash-checked human approvals, plan replanning; workflow version 1 (plan → approve → discover → verify → report) | Profile, people, gap-fill, analysis and outreach steps (Phase 5+) |
+| Web | Supabase email/password auth; runs list; new run (objective, seed pages); run page with status, budget, stages, tasks, plan approval from the stored snapshot, report, claims with quotes and sources, event timeline | Execution graph, drill-down drawer, live event stream, approvals inbox (Phase 5+) |
+| Worker | Scheduler (concurrent claims, heartbeats, time limits, lease recovery, graceful shutdown); agent runtime (bounded tool loop with code-enforced pacing and last-turn salvage, capability tokens, full telemetry); Research agent, planner, verifier; code-only report | Company and people agents, analyst, writer (Phase 5+) |
 | LLM layer | Route classes to model bindings, circuit breakers, Anthropic and OpenAI-compatible (Earthruntime) adapters, pricing, record/replay | — |
-| MCP server | Authenticated Streamable HTTP endpoint (per-execution EdDSA capability tokens), `web_search`, `fetch_page`, `get_source`; provenance-bound fetching through an SSRF-safe fetcher; audit and spend per call | `search_knowledge` (Phase 4), registry tools (Phase 5), workspace API keys |
-| Evals | Replay harness through the production code path; a synthetic discovery case gated in CI; live real-web runs with full traces | Grounding and verification metrics (Phase 4) |
+| MCP server | Authenticated Streamable HTTP endpoint (per-execution EdDSA capability tokens), `web_search`, `fetch_page`, `get_source`; provenance-bound fetching through an SSRF-safe fetcher; audit and spend per call | `search_knowledge`, registry tools (Phase 5), workspace API keys |
+| Evals | Replay harness through the production code path; a synthetic discovery case gated in CI; live real-web runs with full traces | Grounding and verification cases |
 
 ## Run it locally
 
@@ -43,8 +43,9 @@ pnpm dev           # http://localhost:3000 (from another computer: the LAN URL s
 ```
 
 `pnpm check` runs everything CI's first job runs; `pnpm db:test` and `pnpm test:integration` cover the database.
-Integration tests need the local stack (`pnpm db:start`) and run one package at a time, because the task claim query is
-global: the core engine suite drives full prospect runs through both human gates, and the worker suite runs competing
+Integration tests need the local stack (`pnpm db:start`) and run one package and one file at a time, because the task
+claim query is global; for the same reason the test harness refuses to start while a worker (such as `pnpm dev`) is
+connected: the core engine suite drives full prospect runs through both human gates, and the worker suite runs competing
 workers, kills one with SIGKILL mid-task, and checks that a stalled worker's late result is discarded.
 Details in [docs/deployment.md](docs/deployment.md).
 

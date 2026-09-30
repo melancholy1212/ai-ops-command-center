@@ -68,7 +68,7 @@ Every call, in this order:
 ## Implementation status
 
 Phase 3 implements the HTTP endpoint with capability tokens and three tools: `web_search` (Tavily),
-`fetch_page` and `get_source`. `search_knowledge` arrives with the knowledge tables in Phase 4, and `lookup_company`
+`fetch_page` and `get_source`. `search_knowledge` is not built yet (the knowledge tables it would read exist since Phase 4), and `lookup_company`
 and `find_company_people` with the registry providers in Phase 5; until then the server doesn't list them, even
 if a token grants them. Workspace API keys for external clients come later, so the stdio entry point currently
 advertises no tools. Each tool call's cost (Tavily: 1 credit, charged at the $0.008 pay-as-you-go rate) and the call

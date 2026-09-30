@@ -25,6 +25,15 @@ Every visual element maps to a persisted field. Nothing animates, counts or prog
 | Approvals | Pending inbox; history with actor, time, decision, reason and snapshot hash | approvals |
 | Settings | Workspace, members and roles, budgets, model routing (read-only view of config), API keys | workspace tables |
 
+## Built so far (Phase 4)
+
+A thin run view, rendered on the server from the database: runs list, new run (objective, project, seed pages), and a
+run page with status, budget meters, stage counts, task table (running only while the lease is live), the pending plan
+approval rendered from its stored snapshot, the report with score breakdowns and exclusions, claims by company with
+quotes, grounding, judge verdicts and sources, and the latest events. While the run can change on its own, the page
+re-reads every 3 seconds and states when its data was read; there is no event stream yet. Not built: the execution
+graph, the drill-down drawer, the approvals inbox and the other sections, which the navigation shows as "not built".
+
 ## Run page
 
 - **Header:** "Research Run", status badge, objective, budget bar (spent vs limit, from telemetry), elapsed time

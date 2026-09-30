@@ -14,6 +14,24 @@ plan_run ─► approve_plan ─► discover_companies
          rank_and_analyze ─► draft_outreach × K ─► approve_outreach ─► compile_report ─► done
 ```
 
+## Workflow version 1 (implemented, Phase 4)
+
+Runs record their `workflow_version`. Version 1 is the part of the graph above that exists today:
+
+```
+plan_run ─► approve_plan ─► discover_companies ─► verify_entity × top N ─► compile_report
+                                                  (soft join: the report waits for every verification)
+```
+
+- `plan_run`: the planner proposes; code normalises (region table, funding window clamped to today, limits) and
+  records every default as an assumption. Outreach is disabled in version 1, and the plan says so.
+- `discover_companies`: the Research agent's claims are grounded against saved snapshots and persisted in the
+  completion transaction; the top N candidates by a deterministic pre-score get a verification task.
+- `verify_entity`: the verifier judges grounded quotes; policy, criteria, conflicts, confidence and coverage gaps are
+  code. Gaps are recorded as unavailable (there is no gap-fill yet).
+- `compile_report`: code only. Included companies passed verification and fit the brief; each gets a score finding
+  (score@1) citing its claims. Everything else is listed as excluded with a reason and the claims behind it.
+
 ## Task catalogue
 
 | Task | Created | Kind | Agent · route | Consumes | Produces | Attempts | Pauses | Parallel |

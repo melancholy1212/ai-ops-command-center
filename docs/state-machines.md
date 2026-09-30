@@ -90,7 +90,7 @@ Terminal statuses: `succeeded`, `failed`, `skipped`, `cancelled`.
 | In-call | Provider 429, 5xx, timeouts, connection errors | Honour `retry-after` (≤ 60 s), else backoff 1 s / 4 s / 10 s; at most 3; counted in `llm_calls.retry_count`. Then the router may switch to a fallback binding. |
 | In-loop | Output fails its schema; a tool returns an error | Up to 2 repair turns with the validation errors; tool errors go back to the model, which can adapt |
 | Task | The execution failed with a transient class | New execution after `min(30 s × 2^(attempt-1), 10 min)` plus jitter, up to the task type's `maxAttempts` |
-| None | Permanent or policy failures (refusal, invalid after repair, budget, rejection) | Fail fast with a typed code; policy decides skip / gap / pause |
+| None | Permanent or policy failures (refusal, invalid after repair, budget, rejection, `PROVIDER_ACCOUNT`: the provider refused our key or our credit is used up) | Fail fast with a typed code; policy decides skip / gap / pause |
 
 Every retry spends budget, and the budget is checked before each claim.
 

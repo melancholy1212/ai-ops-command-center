@@ -89,6 +89,10 @@ not for claims about its competitors.
 
 ## Verification
 
+Implemented in Phase 4: `packages/core/src/verification` (normalisation with an offset map, grounding, value-in-quote,
+independence, policy v1, confidence, conflicts) and `packages/core/src/workflow/verify.ts`, which applies them in the
+`verify_entity` completion transaction. Only the judge's verdict comes from a model.
+
 Per claim, in order. Everything except step 3 is deterministic code.
 
 1. **Schema:** the assertion parses; the attribute fits the subject.

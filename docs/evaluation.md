@@ -123,8 +123,13 @@ in `replay-all`) and `discovery-live-nordic-seed` (real web from a seed page; li
 The first regression it caught (2026-09-30): raising the agent route's reasoning to medium together with a prompt
 change made the recorded run spend its turns looking for a website the articles didn't give and submit an empty
 result. `replay-tools` comparisons then decided the settings: gpt-oss-120b at low reasoning passes at about $0.009 per
-run; medium quotes slightly more faithfully but costs up to 4x and varies more. Revisit in Phase 4, when grounding
-makes quote fidelity measurable.
+run; medium quotes slightly more faithfully but costs up to 4x and varies more.
+
+Live runs through the UI (Phase 4, six runs on 2026-09-30) showed where the synthetic case is too easy. At low
+reasoning, the agent searched without opening results, gave up after one blocked page, and opened pages unrelated to
+the brief. Code now paces search and salvages the last turn ([agents.md](agents.md#the-tool-loop)). One run at medium
+reasoning and 20 turns found a real candidate. Medium is the next setting to measure, as a live case with a turn and
+cost ceiling. It was not kept, because the recordings could not be redone when the provider credit ran out.
 
 ### Planned cases
 
