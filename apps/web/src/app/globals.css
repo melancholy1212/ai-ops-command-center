@@ -1,0 +1,41 @@
+@import 'tailwindcss';
+
+/* Control-room tokens (docs/ui.md). Accents are used sparingly: focus, selection, live state. */
+@theme {
+  --color-canvas: #0b0d10;
+  --color-panel: #12151a;
+  --color-raised: #1a1e24;
+  --color-line: #232830;
+  --color-ink: #e6e8eb;
+  --color-ink-muted: #9aa3ae;
+  --color-ink-subtle: #6b7480;
+  --color-accent: #3ba7ff;
+  --color-accent-cyan: #22d3ee;
+  --color-ok: #3fb27f;
+  --color-warn: #f5a524;
+  --color-danger: #f0525c;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-canvas font-sans text-ink antialiased;
+}
+
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-accent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -8,3 +8,4 @@ supabase/.temp/
 supabase/.branches/
 **/generated.ts
 *.md
+**/database.types.ts
