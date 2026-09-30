@@ -3,9 +3,12 @@
  * Research agent); the planner, verification and the other agents follow in Phases 4 and 5.
  */
 import { createHash } from 'node:crypto';
-import { Budget, ResearchBrief, type ClaimId, type SourceId } from '@aoc/contracts';
+import { Budget, ResearchBrief, type ClaimId, type ExecutionId, type SourceId } from '@aoc/contracts';
 import {
   applyVerification,
+  normalizePlan,
+  planSnapshot,
+  saveBrief,
   BudgetExhaustedError,
   discoveryExpansion,
   judgeItems,
@@ -26,6 +29,7 @@ import type { TokenMinter } from './agents/tokens';
 import type { ToolClient } from './agents/tool-client';
 import { discoveryRole, type DiscoveryOutput } from './roles/research';
 import { VERIFIER_BATCH_SIZE, verifierRole } from './roles/verifier';
+import { plannerRole } from './roles/planner';
 import { runStructuredCall, type StructuredRole } from './agents/structured';
 import type { HandlerRegistry } from './scheduler';
 
@@ -50,11 +54,14 @@ async function readRun(db: Database, claim: ClaimedTask) {
         'spend_llm_input_tokens',
         'spend_llm_output_tokens',
         'spend_tool_calls',
+        'workflow_version',
       ])
       .where('id', '=', claim.runId)
       .executeTakeFirstOrThrow(),
   );
 }
+
+const AGENT_ACTOR = { kind: 'worker', workerId: 'agent-runtime' } as const;
 
 /** Prompt identity for a structured role: its version and system prompt. */
 function structuredPromptHash(role: StructuredRole<unknown, unknown>): string {
@@ -278,6 +285,90 @@ export function createHandlers(deps: AgentDependencies): HandlerRegistry {
           );
           return { claimIds: company.claims.map((c) => c.id) as ClaimId[] };
         },
+      };
+    },
+
+    async plan_run({ claim, input, db, signal }) {
+      if (input.type !== 'plan_run') throw new TaskFailure('INTERNAL_ERROR', 'plan_run received the wrong input.');
+      const run = await readRun(db, claim);
+      const previous = ResearchBrief.safeParse(run.brief);
+      const recorder = await ExecutionRecorder.start(db, claim, {
+        agent: plannerRole.agent,
+        agentVersion: plannerRole.version,
+        promptHash: structuredPromptHash(plannerRole),
+        input: { revision: input.revision, rejectionFeedback: input.rejectionFeedback },
+        limits: {
+          maxTurns: 3,
+          maxToolCalls: 0,
+          maxOutputTokensPerCall: plannerRole.maxOutputTokens,
+          timeoutMs: 300_000,
+        },
+      });
+      let proposal;
+      try {
+        ({ output: proposal } = await runStructuredCall({
+          role: plannerRole,
+          input: {
+            objective: run.objective,
+            today: today(),
+            revision: input.revision,
+            rejectionFeedback: input.rejectionFeedback,
+            previousCriteria: previous.success ? previous.data.criteria : null,
+          },
+          router: deps.router,
+          recorder,
+          checkBudget: budgetChecker(db, claim),
+          signal,
+        }));
+      } catch (error) {
+        if (!(error instanceof BudgetExhaustedError) && !signal.aborted) await recorder.fail(toFailure(error));
+        throw error;
+      }
+      const plan = normalizePlan(proposal, today());
+      const brief = {
+        revision: input.revision,
+        objective: run.objective,
+        criteria: plan.criteria,
+        assumptions: plan.assumptions,
+        openQuestions: plan.openQuestions,
+        plannerExecutionId: recorder.executionId as ExecutionId,
+      };
+      return {
+        kind: 'succeeded',
+        summary: {
+          revision: input.revision,
+          countries: plan.criteria.countries.length,
+          assumptions: plan.assumptions.length,
+        },
+        write: async (tx) => {
+          await recorder.succeedInTx(tx, brief);
+          await saveBrief(tx, { id: claim.runId, workspace_id: claim.workspaceId }, brief, AGENT_ACTOR);
+          return {};
+        },
+      };
+    },
+
+    async approve_plan({ claim, input, db }) {
+      if (input.type !== 'approve_plan')
+        throw new TaskFailure('INTERNAL_ERROR', 'approve_plan received the wrong input.');
+      const run = await readRun(db, claim);
+      const brief = ResearchBrief.parse(run.brief);
+      if (brief.revision !== input.revision) {
+        throw new TaskFailure(
+          'INTERNAL_ERROR',
+          `The brief is revision ${String(brief.revision)}, the gate is for ${String(input.revision)}.`,
+        );
+      }
+      return {
+        kind: 'awaiting_approval',
+        approvals: [
+          {
+            type: 'plan',
+            target: { type: 'plan', runId: claim.runId, briefRevision: brief.revision },
+            targetKey: `plan:r${String(brief.revision)}`,
+            snapshot: planSnapshot(brief, Budget.parse(run.budget), run.workflow_version),
+          },
+        ],
       };
     },
   };

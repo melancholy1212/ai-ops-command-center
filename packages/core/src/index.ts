@@ -40,4 +40,13 @@ export {
   type JudgeVerdictRecord,
   type VerificationSummary,
 } from './workflow/verify';
+export {
+  normalizePlan,
+  planEstimate,
+  planSnapshot,
+  PlannerProposal,
+  PLAN_DEFAULTS,
+  REGIONS,
+  type NormalizedPlan,
+} from './workflow/plan';
 export type { UserActor } from './commands/common';
