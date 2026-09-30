@@ -9,13 +9,136 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
 
+export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
+
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface Approvals {
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  decision: string | null;
+  decision_reason: string | null;
+  id: Generated<string>;
+  invalidated_at: Timestamp | null;
+  invalidation_detail: string | null;
+  invalidation_reason: string | null;
+  replaced_by: string | null;
+  requested_at: Generated<Timestamp>;
+  run_id: string;
+  snapshot: Json;
+  snapshot_hash: string;
+  snapshot_hash_seen: string | null;
+  snapshot_schema_version: number;
+  status: Generated<string>;
+  target: Json;
+  target_key: string;
+  task_id: string | null;
+  type: string;
+  workspace_id: string;
+}
+
+export interface AuditLogs {
+  action: string;
+  actor: Json;
+  created_at: Generated<Timestamp>;
+  id: Generated<Int8>;
+  metadata: Generated<Json>;
+  target_id: string | null;
+  target_type: string | null;
+  workspace_id: string;
+}
 
 export interface Projects {
   created_at: Generated<Timestamp>;
   description: string | null;
   id: Generated<string>;
   name: string;
+  updated_at: Generated<Timestamp>;
+  workspace_id: string;
+}
+
+export interface RunEvents {
+  actor: Json;
+  data: Generated<Json>;
+  occurred_at: Generated<Timestamp>;
+  refs: Generated<Json>;
+  run_id: string;
+  seq: Int8;
+  type: string;
+  workspace_id: string;
+}
+
+export interface Runs {
+  brief: Json | null;
+  budget: Json;
+  budget_blocked: Generated<boolean>;
+  cancel_requested: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  failure: Json | null;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  last_event_seq: Generated<Int8>;
+  objective: string;
+  pause_reason: string | null;
+  pause_requested: Generated<boolean>;
+  project_id: string;
+  spend_cost_usd_micros: Generated<Int8>;
+  spend_llm_input_tokens: Generated<Int8>;
+  spend_llm_output_tokens: Generated<Int8>;
+  spend_tool_calls: Generated<number>;
+  started_at: Timestamp | null;
+  status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  workflow: string;
+  workflow_version: number;
+  workspace_id: string;
+}
+
+export interface TaskDependencies {
+  created_at: Generated<Timestamp>;
+  depends_on_task_id: string;
+  mode: string;
+  run_id: string;
+  task_id: string;
+  workspace_id: string;
+}
+
+export interface Tasks {
+  attempt: Generated<number>;
+  created_at: Generated<Timestamp>;
+  finished_at: Timestamp | null;
+  heartbeat_at: Timestamp | null;
+  id: Generated<string>;
+  idempotency_key: string;
+  input: Json;
+  kind: string;
+  last_failure: Json | null;
+  lease_expires_at: Timestamp | null;
+  lease_owner: string | null;
+  lease_token: string | null;
+  max_attempts: number;
+  output: Json | null;
+  parent_task_id: string | null;
+  priority: Generated<number>;
+  run_after: Generated<Timestamp>;
+  run_id: string;
+  started_at: Timestamp | null;
+  status: Generated<string>;
+  subject_company_id: string | null;
+  type: string;
   updated_at: Generated<Timestamp>;
   workspace_id: string;
 }
@@ -35,7 +158,13 @@ export interface Workspaces {
 }
 
 export interface DB {
+  approvals: Approvals;
+  audit_logs: AuditLogs;
   projects: Projects;
+  run_events: RunEvents;
+  runs: Runs;
+  task_dependencies: TaskDependencies;
+  tasks: Tasks;
   workspace_members: WorkspaceMembers;
   workspaces: Workspaces;
 }

@@ -222,7 +222,7 @@ describe('Evidence and Finding', () => {
 });
 
 describe('Run', () => {
-  it('requires a pause reason exactly when paused', () => {
+  it('requires a pause reason when paused, and a brief once running', () => {
     const run = {
       id: id(),
       workspaceId: id(),
@@ -234,6 +234,8 @@ describe('Run', () => {
       status: 'paused',
       pauseReason: null,
       cancelRequested: false,
+      pauseRequested: false,
+      budgetBlocked: false,
       budget: { maxCostUsdMicros: 2_000_000, maxLlmTokens: 4_000_000, maxToolCalls: 400, maxWallClockSeconds: 3600 },
       spend: { costUsdMicros: 0, llmInputTokens: 0, llmOutputTokens: 0, toolCalls: 0 },
       approvals: { planApprovalId: null, pendingApprovalIds: [] },
@@ -245,7 +247,9 @@ describe('Run', () => {
       startedAt: null,
       finishedAt: null,
     };
-    expect(issuePaths(Run, run)).toEqual(expect.arrayContaining(['pauseReason', 'brief']));
+    expect(issuePaths(Run, run)).toEqual(['pauseReason']);
+    // Paused while planning is fine without a brief; running is not.
+    expect(issuePaths(Run, { ...run, status: 'running' })).toEqual(['brief']);
   });
 });
 

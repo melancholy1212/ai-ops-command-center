@@ -119,6 +119,10 @@ export const Run = z
     status: RunStatus,
     pauseReason: PauseReason.nullable(),
     cancelRequested: z.boolean(),
+    /** A user asked to pause: no new tasks are claimed; running tasks finish. */
+    pauseRequested: z.boolean(),
+    /** The scheduler refused a task for lack of budget; cleared when a budget extension is approved. */
+    budgetBlocked: z.boolean(),
     budget: Budget,
     spend: Spend,
     approvals: RunApprovalState,
@@ -145,7 +149,8 @@ export const Run = z
     if (terminal !== (run.finishedAt !== null)) {
       ctx.addIssue({ code: 'custom', path: ['finishedAt'], message: 'finishedAt is set exactly for terminal runs' });
     }
-    const needsBrief: readonly RunStatus[] = ['awaiting_plan_approval', 'running', 'paused', 'completed'];
+    // A run can be paused while still planning, so paused does not require a brief.
+    const needsBrief: readonly RunStatus[] = ['awaiting_plan_approval', 'running', 'completed'];
     if (needsBrief.includes(run.status) && run.brief === null) {
       ctx.addIssue({ code: 'custom', path: ['brief'], message: `a ${run.status} run must have a brief` });
     }

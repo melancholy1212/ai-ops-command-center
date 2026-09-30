@@ -50,6 +50,8 @@ export interface TaskDefinition {
   readonly createdBy: 'run_start' | 'expansion';
   readonly parallelAcrossCompanies: boolean;
   readonly pausesForHuman: boolean;
+  /** A permanent failure of this task fails the whole run. */
+  readonly fatalOnFailure: boolean;
 }
 
 export const TASK_DEFINITIONS = {
@@ -60,6 +62,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'run_start',
     parallelAcrossCompanies: false,
     pausesForHuman: false,
+    fatalOnFailure: true,
   },
   approve_plan: {
     kind: 'human_gate',
@@ -68,6 +71,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'run_start',
     parallelAcrossCompanies: false,
     pausesForHuman: true,
+    fatalOnFailure: false,
   },
   discover_companies: {
     kind: 'agent_loop',
@@ -76,6 +80,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'run_start',
     parallelAcrossCompanies: false,
     pausesForHuman: false,
+    fatalOnFailure: true,
   },
   profile_company: {
     kind: 'agent_loop',
@@ -84,6 +89,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'expansion',
     parallelAcrossCompanies: true,
     pausesForHuman: false,
+    fatalOnFailure: false,
   },
   find_people: {
     kind: 'agent_loop',
@@ -92,6 +98,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'expansion',
     parallelAcrossCompanies: true,
     pausesForHuman: false,
+    fatalOnFailure: false,
   },
   verify_entity: {
     kind: 'structured_llm',
@@ -100,6 +107,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'expansion',
     parallelAcrossCompanies: true,
     pausesForHuman: false,
+    fatalOnFailure: false,
   },
   gap_fill: {
     kind: 'agent_loop',
@@ -108,6 +116,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'expansion',
     parallelAcrossCompanies: true,
     pausesForHuman: false,
+    fatalOnFailure: false,
   },
   rank_and_analyze: {
     kind: 'structured_llm',
@@ -116,6 +125,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'expansion',
     parallelAcrossCompanies: false,
     pausesForHuman: false,
+    fatalOnFailure: true,
   },
   draft_outreach: {
     kind: 'structured_llm',
@@ -124,6 +134,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'expansion',
     parallelAcrossCompanies: true,
     pausesForHuman: false,
+    fatalOnFailure: false,
   },
   approve_outreach: {
     kind: 'human_gate',
@@ -132,6 +143,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'expansion',
     parallelAcrossCompanies: false,
     pausesForHuman: true,
+    fatalOnFailure: false,
   },
   compile_report: {
     kind: 'code',
@@ -140,6 +152,7 @@ export const TASK_DEFINITIONS = {
     createdBy: 'expansion',
     parallelAcrossCompanies: false,
     pausesForHuman: false,
+    fatalOnFailure: true,
   },
 } as const satisfies Record<TaskType, TaskDefinition>;
 
@@ -147,7 +160,15 @@ export const WORKFLOW_LIMITS = {
   maxGapFillRounds: 1,
   maxPlanRevisions: 3,
   maxOutreachRedrafts: 1,
+  /** Tasks of one run that may run at the same time (enforced by the claim query). */
+  maxParallelTasksPerRun: 4,
 } as const;
+
+/** The run is complete when this task succeeds. */
+export const FINAL_TASK_TYPE = 'compile_report' satisfies TaskType;
+
+/** Planning tasks: while the plan task is active the run is planning; while the gate is active, awaiting approval. */
+export const PLAN_TASK_TYPES = { plan: 'plan_run', gate: 'approve_plan' } as const satisfies Record<string, TaskType>;
 
 /** Coverage policy: missing required attributes become research gaps and trigger gap_fill. */
 export const REQUIRED_COMPANY_ATTRIBUTES = [

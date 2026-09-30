@@ -122,15 +122,16 @@ export const Approval = z
     if (a.target.type !== a.type || a.snapshot.kind !== a.type) {
       ctx.addIssue({ code: 'custom', path: ['type'], message: 'type, target.type and snapshot.kind must agree' });
     }
+    // An approved item can later be invalidated; it keeps the decision that was made.
     const decided = a.status === 'approved' || a.status === 'rejected';
-    if (decided !== (a.decision !== null)) {
+    if ((decided && a.decision === null) || (a.status === 'pending' && a.decision !== null)) {
       ctx.addIssue({
         code: 'custom',
         path: ['decision'],
-        message: 'a decision exists exactly for approved or rejected approvals',
+        message: 'approved and rejected approvals have a decision; pending ones do not',
       });
     }
-    if (a.decision !== null && a.decision.decision !== a.status) {
+    if (decided && a.decision !== null && a.decision.decision !== a.status) {
       ctx.addIssue({ code: 'custom', path: ['status'], message: 'status must match the decision' });
     }
     if (a.decision !== null && a.decision.snapshotHashSeen !== a.snapshotHash) {
