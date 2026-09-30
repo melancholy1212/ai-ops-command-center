@@ -10,7 +10,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests --exclude '**/*.integration.test.ts'",
-    "test:integration": "vitest run integration",
+    "test:integration": "vitest run integration --no-file-parallelism",
     "generate:types": "kysely-codegen --dialect postgres --url postgresql://postgres:postgres@127.0.0.1:55322/postgres --include-pattern 'public.*' --out-file src/generated.ts"
   },
   "dependencies": {

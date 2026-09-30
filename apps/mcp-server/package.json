@@ -13,7 +13,7 @@
     "start:stdio": "node dist/stdio.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude '**/*.integration.test.ts'",
-    "test:integration": "vitest run integration"
+    "test:integration": "vitest run integration --no-file-parallelism"
   },
   "dependencies": {
     "@aoc/config": "workspace:*",

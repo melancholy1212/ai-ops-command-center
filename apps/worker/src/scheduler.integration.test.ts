@@ -188,7 +188,8 @@ describe('scheduler', () => {
           };
         },
       },
-      { reapIntervalMs: 3_600_000, leaseSeconds: 20, heartbeatIntervalMs: 3_000 },
+      // One slot, held by the stalled handler: A cannot reclaim the task after the takeover and starve B.
+      { reapIntervalMs: 3_600_000, leaseSeconds: 20, heartbeatIntervalMs: 3_000, concurrency: 1 },
     );
     await waitFor(async () => (await profileTasks(runId))[0]?.status === 'running', 5_000, 'worker A to start');
 

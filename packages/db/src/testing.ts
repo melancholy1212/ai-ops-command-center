@@ -31,6 +31,19 @@ export async function createTestHarness(): Promise<TestHarness> {
   const admin = new pg.Client({ connectionString: adminUrl });
   await admin.connect();
 
+  // A running worker (`pnpm dev`) claims ready tasks from every run, test runs included, and makes the
+  // engine tests fail at random. Refuse to start instead.
+  const workers = await admin.query<{ application_name: string }>(
+    "select distinct application_name from pg_stat_activity where datname = current_database() and application_name like 'worker:%'",
+  );
+  if (workers.rows.length > 0) {
+    await admin.end();
+    throw new Error(
+      `A worker is connected to this database (${workers.rows.map((r) => r.application_name).join(', ')}). ` +
+        'It would claim the tasks of test runs; stop `pnpm dev` (or the worker) before running integration tests.',
+    );
+  }
+
   // Leftovers of runs that were interrupted more than an hour ago. Role names carry their creation
   // time, so a harness never drops the role of another test run that is still going.
   const cutoff = Math.floor(Date.now() / 1000) - 3600;
