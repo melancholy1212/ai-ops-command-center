@@ -91,7 +91,7 @@ function claim(
   sourceId: SourceId,
   quote: string,
 ): ProposedClaim {
-  return { subject, assertion, rawValue: 'as stated', evidence: [{ sourceId, quote }] } as ProposedClaim;
+  return { subject, assertion, rawValue: 'as stated', evidence: [{ sourceId, quote }] };
 }
 
 const ARTICLE =
