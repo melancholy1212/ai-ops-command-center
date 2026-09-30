@@ -240,7 +240,8 @@ export async function completeTask(
     }
 
     const written = outcome.write ? await outcome.write(tx) : {};
-    const taskIds = outcome.expand ? await createTasks(tx, run, outcome.expand, task.id, 'expansion', actor) : [];
+    const plan = typeof outcome.expand === 'function' ? outcome.expand(written) : outcome.expand;
+    const taskIds = plan ? await createTasks(tx, run, plan, task.id, 'expansion', actor) : [];
     const output = TaskOutputRef.parse({
       executionId: null,
       created: { ...EMPTY_REFS, ...written, taskIds: [...(written.taskIds ?? []), ...taskIds] },

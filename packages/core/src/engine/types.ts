@@ -64,7 +64,8 @@ export type TaskOutcome =
       kind: 'succeeded';
       summary?: z.infer<typeof SmallSummary>;
       write?: (tx: WorkspaceTransaction) => Promise<Partial<CreatedRefs>>;
-      expand?: ExpansionPlan;
+      /** Static, or computed from what `write` created (e.g. one verification task per company it saved). */
+      expand?: ExpansionPlan | ((written: Partial<CreatedRefs>) => ExpansionPlan);
     }
   | { kind: 'awaiting_approval'; approvals: readonly ApprovalRequest[] };
 

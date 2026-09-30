@@ -745,7 +745,7 @@ describe('graph changes', () => {
     );
     const plan = prospectHandlers(companies).discover_companies!({} as ClaimedTask, {});
     if (plan.kind !== 'succeeded' || !plan.expand) throw new Error('expected an expansion');
-    const expansion = plan.expand;
+    const expansion = typeof plan.expand === 'function' ? plan.expand({}) : plan.expand;
     const created = await withWorkspace(h.db, owner.workspaceId, async (tx) =>
       createTasks(tx, await lockRun(tx, runId), expansion, null, 'expansion', WORKER),
     );

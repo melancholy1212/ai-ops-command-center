@@ -88,6 +88,21 @@ async function discoveryRun(budget: Budget = DEFAULT_RUN_BUDGET): Promise<RunId>
   return runId;
 }
 
+/** The snapshot the fake fetch_page points at, saved as the MCP server would have saved it. */
+async function saveSource(): Promise<void> {
+  const text = `${QUOTE} led by Nordic Seed Partners. Northwind Climate AB is headquartered in Stockholm, Sweden.`;
+  await h.admin.query(
+    `insert into public.sources (id, workspace_id, requested_url, final_url, final_url_hash, host, registrable_domain,
+       source_type, tier, origin, retrieved_at, http, published_at_method, raw_sha256, content_sha256, text, text_length,
+       truncated, extraction_method, extractor_version, fetched_by_tool_call_id, published_at)
+     values ($1, $2, 'https://news.example/a', 'https://news.example/a', $3, 'news.example', 'news.example', 'news_article',
+       'B', '{"kind":"search_result"}', now(), '{"status":200}', 'html_meta', $3, $4, $5, char_length($5), false,
+       'readability_html', 'extract@1', gen_random_uuid(), '2026-03-12T08:00:00Z')
+     on conflict (id) do nothing`,
+    [SOURCE, tenant.workspaceId, 'a'.repeat(64), 'b'.repeat(64), text],
+  );
+}
+
 const fakeTools = (): ToolClient => ({
   tools: [
     { name: 'web_search', description: 'search', inputSchema: { type: 'object' } },
@@ -143,9 +158,10 @@ function start(turns: ScriptedTurn[]) {
 async function waitForTask(runId: RunId, statuses: string[]) {
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
-    const { rows } = await h.admin.query<{ status: string }>(`select status from public.tasks where run_id = $1`, [
-      runId,
-    ]);
+    const { rows } = await h.admin.query<{ status: string }>(
+      `select status from public.tasks where run_id = $1 and type = 'discover_companies'`,
+      [runId],
+    );
     if (rows[0] && statuses.includes(rows[0].status)) return rows[0].status;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
@@ -170,6 +186,7 @@ async function execution(runId: RunId) {
 
 describe('discovery agent', () => {
   it('runs the Research agent to a result and records the whole execution', async () => {
+    await saveSource();
     const runId = await discoveryRun();
     start([
       call('web_search', { query: 'Nordic climate software seed round' }, 1),
@@ -233,10 +250,45 @@ describe('discovery agent', () => {
       spend_llm_output_tokens: '1500',
     });
     const { rows: task } = await h.admin.query<{ output: { summary: unknown } }>(
-      'select output from public.tasks where run_id = $1',
+      "select output from public.tasks where run_id = $1 and type = 'discover_companies'",
       [runId],
     );
     expect(task[0]?.output.summary).toEqual({ claimsProposed: 1, companies: 1 });
+
+    // Code grounded and saved the proposal, then expanded the graph from it.
+    const { rows: claims } = await h.admin.query<{
+      attribute: string;
+      status: string;
+      statement: string;
+      company: string;
+      domain: string;
+    }>(
+      `select c.attribute, c.status, c.statement, co.name as company, co.primary_domain as domain
+       from public.claims c join public.companies co on co.id = c.subject_company_id where c.run_id = $1`,
+      [runId],
+    );
+    expect(claims).toEqual([
+      {
+        attribute: 'company.hq_country',
+        status: 'grounded',
+        statement: 'Northwind Climate is headquartered in Sweden.',
+        company: 'Northwind Climate',
+        domain: 'northwind.example',
+      },
+    ]);
+    const { rows: evidence } = await h.admin.query<{ grounding: string; value_in_quote: boolean }>(
+      `select e.grounding, e.value_in_quote from public.evidence e join public.claims c on c.id = e.claim_id where c.run_id = $1`,
+      [runId],
+    );
+    expect(evidence).toEqual([{ grounding: 'exact', value_in_quote: true }]);
+    const { rows: created } = await h.admin.query<{ type: string; status: string }>(
+      `select type, status from public.tasks where run_id = $1 and type <> 'discover_companies' order by type`,
+      [runId],
+    );
+    expect(created).toEqual([
+      { type: 'compile_report', status: 'blocked' },
+      { type: 'verify_entity', status: 'ready' },
+    ]);
   });
 
   it('fails the execution with the task when the model refuses', async () => {
@@ -270,7 +322,7 @@ describe('discovery agent', () => {
     }
     expect(run).toEqual({ status: 'paused', pause_reason: 'budget_exhausted' });
     const { rows: task } = await h.admin.query<{ status: string; attempt: number }>(
-      'select status, attempt from public.tasks where run_id = $1',
+      "select status, attempt from public.tasks where run_id = $1 and type = 'discover_companies'",
       [runId],
     );
     expect(task[0]).toEqual({ status: 'ready', attempt: 0 });

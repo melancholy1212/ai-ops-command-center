@@ -24,4 +24,11 @@ export { assertApprovalCurrent } from './engine/approvals';
 export { createRun, startRun, cancelRun, pauseRun, resumeRun } from './commands/runs';
 export { decideApproval } from './commands/approvals';
 export { saveBrief } from './workflow/prospect';
+export {
+  persistDiscovery,
+  discoveryExpansion,
+  type DiscoveredCompany,
+  type DiscoveryResult,
+  type DiscoveryContext,
+} from './workflow/discovery';
 export type { UserActor } from './commands/common';

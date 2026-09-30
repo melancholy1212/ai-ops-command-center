@@ -2,8 +2,17 @@
  * Task handlers by type. The scheduler claims only the types listed here. Phase 3 registers discovery (the
  * Research agent); the planner, verification and the other agents follow in Phases 4 and 5.
  */
-import { Budget, ResearchBrief } from '@aoc/contracts';
-import { BudgetExhaustedError, evaluateBudget, TaskFailure, toFailure, type ClaimedTask } from '@aoc/core';
+import { Budget, ResearchBrief, type ClaimId, type SourceId } from '@aoc/contracts';
+import {
+  BudgetExhaustedError,
+  discoveryExpansion,
+  evaluateBudget,
+  persistDiscovery,
+  TaskFailure,
+  toFailure,
+  type ClaimedTask,
+  type DiscoveryResult,
+} from '@aoc/core';
 import { withWorkspace, type Database } from '@aoc/db';
 import type { LlmRouter } from '@aoc/llm';
 import { promptHash, runToolLoop, type AgentRole } from './agents/loop';
@@ -153,14 +162,33 @@ export function createHandlers(deps: AgentDependencies): HandlerRegistry {
           c.subject.kind === 'new_company' ? c.subject.name.toLowerCase() : '',
         ),
       );
+      const criteria = brief.data.criteria;
+      let discovered: DiscoveryResult | null = null;
       return {
         kind: 'succeeded',
         summary: { claimsProposed: output.claims.length, companies: companies.size },
-        // Phase 4 grounds and persists these claims and expands the graph; until then they live on the execution.
+        // Code grounds and saves the proposals in the completion transaction, then expands the graph from them.
         write: async (tx) => {
           await recorder.succeedInTx(tx, output);
-          return {};
+          discovered = await persistDiscovery(
+            tx,
+            {
+              run: { id: claim.runId, workspace_id: claim.workspaceId },
+              taskId: claim.taskId,
+              executionId: recorder.executionId,
+              agent: 'research',
+              criteria,
+              now: (deps.now ?? (() => new Date()))(),
+            },
+            output.claims,
+          );
+          return {
+            companyIds: discovered.companies.map((c) => c.id),
+            claimIds: discovered.claimIds as ClaimId[],
+            sourceIds: discovered.sourceIds as SourceId[],
+          };
         },
+        expand: () => discoveryExpansion(discovered?.companies ?? [], criteria.maxCompanies),
       };
     },
   };
