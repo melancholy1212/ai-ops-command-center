@@ -1,0 +1,25 @@
+{
+  "name": "@aoc/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run integration"
+  },
+  "dependencies": {
+    "@aoc/contracts": "workspace:*",
+    "@aoc/db": "workspace:*",
+    "kysely": "0.29.6",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@aoc/config": "workspace:*",
+    "pg": "8.23.0",
+    "vitest": "5.0.2"
+  }
+}

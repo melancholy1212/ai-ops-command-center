@@ -322,6 +322,31 @@ importers:
         specifier: 5.0.2
         version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(jiti@2.7.0))
 
+  packages/core:
+    dependencies:
+      '@aoc/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@aoc/db':
+        specifier: workspace:*
+        version: link:../db
+      kysely:
+        specifier: 0.29.6
+        version: 0.29.6
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@aoc/config':
+        specifier: workspace:*
+        version: link:../config
+      pg:
+        specifier: 8.23.0
+        version: 8.23.0
+      vitest:
+        specifier: 5.0.2
+        version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
   packages/db:
     dependencies:
       '@aoc/contracts':

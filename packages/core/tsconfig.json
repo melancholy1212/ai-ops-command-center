@@ -1,0 +1,4 @@
+{
+  "extends": "@aoc/config/tsconfig/base.json",
+  "include": ["src"]
+}
