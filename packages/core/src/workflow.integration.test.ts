@@ -35,7 +35,8 @@ import {
   type UserId,
 } from '@aoc/contracts';
 import { withWorkspace } from '@aoc/db';
-import { createTestHarness, type TestHarness, type TestTenant } from '@aoc/db/testing';
+import { createTestHarness, LOCAL_ADMIN_URL, type TestHarness, type TestTenant } from '@aoc/db/testing';
+import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RUN_BUDGET } from './budget';
 import { sha256Hex } from './canonical-json';
@@ -840,6 +841,24 @@ describe('leases', () => {
     await completeTask(h.db, retry, plan, WORKER);
     expect((await statusByKey(runId))['plan_run:r1']).toBe('succeeded');
     await expectConsistentTimeline(runId);
+  });
+});
+
+describe('claiming', () => {
+  it('claims from a run even while a transition holds the run row', async () => {
+    const runId = await startedRun();
+    // A second connection plays a transition in progress: it holds the run row lock.
+    const blocker = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL ?? LOCAL_ADMIN_URL });
+    await blocker.connect();
+    try {
+      await blocker.query('begin');
+      await blocker.query('select id from public.runs where id = $1 for update', [runId]);
+      const claimed = await claimNextTask(h.db, { workerId: 'it-worker', leaseSeconds: 30, taskTypes: ALL_TYPES });
+      expect(claimed?.runId).toBe(runId);
+    } finally {
+      await blocker.query('rollback');
+      await blocker.end();
+    }
   });
 });
 

@@ -54,9 +54,11 @@ Terminal statuses: `succeeded`, `failed`, `skipped`, `cancelled`.
 
 ## Leases and crash safety
 
-- Claiming uses `claim_next_task()`, a `SECURITY DEFINER` function: `UPDATE ... WHERE id = (SELECT ... FOR UPDATE
-  OF task, run SKIP LOCKED LIMIT 1)`. Two workers can never hold the same task. Locking the run row too makes the
-  per-run limit (4 running tasks) exact: a concurrent claimer skips that run until the first claim commits.
+- Claiming uses `claim_next_task()`, a `SECURITY DEFINER` function. Candidate tasks are locked `FOR UPDATE SKIP
+  LOCKED`, so two workers can never hold the same task. The per-run limit (4 running tasks) is exact: claims of one
+  run serialise on a transaction-level advisory lock and re-count the run's running tasks under it. Transitions never
+  take that lock, so a claim doesn't skip a run just because one of its tasks is being started or completed (an
+  earlier version locked the run row and left workers idling on busy runs).
 - Every transition locks the run row first, then the task, then approvals. One lock order everywhere means no
   deadlocks, and two sibling tasks finishing at the same moment can never both miss promoting their dependent.
 - Lease: 60 s, extended by a heartbeat every 15 s from a timer, not from the handler (the heartbeat interval must be
