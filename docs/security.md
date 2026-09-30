@@ -48,7 +48,8 @@ compromised dependencies; anyone on the internet.
 |---|---|---|
 | `anon` | nobody | nothing |
 | `authenticated` | the browser and server components, as the signed-in user | read their workspaces' rows through RLS; no direct writes to workflow, evidence or telemetry tables |
-| `app_backend` | worker, MCP server, web commands | read and write within the workspace set in the transaction; insert-only on append-only tables; call `claim_next_task` and `reap_expired_leases` |
+| `app_backend` | assumed by services inside a transaction | read and write within the workspace set in the transaction; insert-only on append-only tables; call `claim_next_task` and `reap_expired_leases` |
+| `aoc_service` | worker, MCP server, web commands (the login role) | nothing on its own (`NOINHERIT`); may only `SET LOCAL ROLE app_backend`, so a stolen connection string is limited to what `app_backend` can do under RLS |
 | `service_role` | migrations, admin scripts | everything; never configured in a running service |
 
 RLS is not a substitute for privileges: every role gets explicit `GRANT`s for exactly what it needs, and new tables

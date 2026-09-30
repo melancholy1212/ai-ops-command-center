@@ -78,6 +78,22 @@ Kysely using types generated from the database; the browser reads through Supaba
 - `artifact_references` (artifact_id, claim_id or finding_id).
 - `audit_logs` (workspace_id, actor, action, target_type, target_id, metadata, created_at). Append-only.
 
+## Roles (implemented in `20260930120000_tenancy.sql`)
+
+| Role | Attributes | Purpose |
+|---|---|---|
+| `app_backend` | `NOLOGIN NOBYPASSRLS` | Holds the backend's table privileges; RLS policies for services target it |
+| `aoc_service` | `LOGIN NOINHERIT NOBYPASSRLS`, member of `app_backend` with `SET` only | The role services connect as. It has no privileges until `withWorkspace()` runs `SET LOCAL ROLE app_backend` and sets `app.workspace_id` in the transaction |
+| `postgres` | admin | Also granted `SET` (not inherit) on `app_backend`: Postgres 16+ does not let a role's creator assume it automatically, and tests and admin tooling need to |
+
+Verified by pgTAP (`supabase/tests/tenancy.test.sql`, 21 checks) and by integration tests that connect as
+`aoc_service` (`packages/db/src/workspace.integration.test.ts`): scoping, refusal outside the workspace, rollback,
+and no leak of role or scope to the next user of a pooled connection.
+
+Implemented so far: `workspaces`, `workspace_members`, `projects`, the RLS helpers, the roles, and the signup
+trigger that creates a personal workspace, owner membership and default project. The remaining tables below are
+the design for later phases.
+
 ## Row-level security
 
 ```sql

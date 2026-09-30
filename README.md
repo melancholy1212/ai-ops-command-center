@@ -14,9 +14,31 @@ Finding → Claim → Evidence → Source snapshot → exact quote
 
 ## Status
 
-**Phase 0: architecture.** The documentation and the domain contracts exist. The contracts are Zod schemas that
-type-check under strict TypeScript and have runtime invariant checks. Nothing else is implemented yet: no database,
-no services, no UI. Each phase ends with typecheck, lint, tests, build and CI green before the next begins.
+**Phase 1 (foundation) is complete.** Each phase ends with typecheck, lint, tests, build and CI green before the
+next begins.
+
+| Area | Built | Not yet |
+|---|---|---|
+| Monorepo | pnpm 12 + Turborepo, strict TypeScript 6.0, ESLint 10, Prettier, Vitest, CI | — |
+| Contracts | Zod schemas for runs, tasks, executions, claims, evidence, approvals, findings, MCP tools, events | — |
+| Database | Workspaces, members, projects; row-level security for users and for the backend role; personal workspace on signup; pgTAP + integration tests | Workflow, evidence and telemetry tables (Phase 2+) |
+| Web | Supabase email/password auth, session refresh, dashboard shell | Runs, graph, evidence, approvals UI (Phases 2–6) |
+| Worker | Health, database check, graceful shutdown | Scheduler and agents (Phases 2–5) |
+| MCP server | MCP handshake over stdio, health endpoint | Tools and authentication (Phase 3) |
+
+## Run it locally
+
+Requires Node.js 22, pnpm 12 and Docker.
+
+```bash
+pnpm install
+pnpm db:start      # local Supabase (own ports: 55321 API, 55322 Postgres)
+pnpm setup:local   # local-only credentials and git-ignored .env.local files
+pnpm dev           # http://localhost:3000
+```
+
+`pnpm check` runs everything CI's first job runs; `pnpm db:test` and `pnpm test:integration` cover the database.
+Details in [docs/deployment.md](docs/deployment.md).
 
 ## Documentation
 

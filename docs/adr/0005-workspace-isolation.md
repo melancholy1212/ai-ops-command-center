@@ -14,6 +14,12 @@ query remembering a `WHERE workspace_id = ...`. Here, much of that code runs on 
   functions that return minimal data.
 - The service-role key is used only for migrations and administration.
 
+## Implementation (Phase 1)
+Services connect as `aoc_service` (`LOGIN NOINHERIT`), a member of `app_backend` with `SET` only. On its own it can
+read nothing. `withWorkspace()` in `packages/db` opens a transaction, runs `SET LOCAL ROLE app_backend` and
+`set_config('app.workspace_id', …, true)`. Both are transaction-local, so a pooled connection is clean for its next
+user. Verified locally by pgTAP and by integration tests that connect as `aoc_service`.
+
 ## Consequences
 - A bug in agent or tool code cannot read another tenant's rows; the database refuses.
 - Every tenant table carries `workspace_id` with composite foreign keys, so RLS stays a single indexed check.

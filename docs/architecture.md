@@ -1,7 +1,9 @@
 # Architecture overview
 
-Status: **Phase 0 (architecture)**. Nothing described here is implemented yet except the domain contracts in
-[`packages/contracts`](../packages/contracts/src), which type-check and have runtime invariant checks.
+Status: **Phase 1 (foundation) complete.** Implemented: the monorepo and tooling, the domain contracts, the tenancy
+migration with row-level security, Supabase auth with a personal workspace per user, the web app shell, and worker
+and MCP server skeletons. The workflow engine, agents, tools and verification described below are designed but not
+built yet; see the build phases at the end.
 
 ## What the system does
 
@@ -90,7 +92,16 @@ only as findings labelled `analysis` or `inference`, each citing its claims. See
 | LLM | Own provider interface + router; Anthropic and OpenAI-compatible adapters ([llm.md](llm.md)) |
 | Testing | Vitest, real-Postgres integration tests, pgTAP for RLS, recorded-scenario evals ([evaluation.md](evaluation.md)) |
 
-Versions are pinned in Phase 1. At the time of writing, `typescript@latest` is 7.0.2 and `zod@latest` 4.6.5.
+Pinned in Phase 1 (exact versions, no ranges):
+
+| Tool | Version | Why this one |
+|---|---|---|
+| TypeScript | 6.0.3 | 7.x (`latest`) no longer ships the compiler API that typescript-eslint (supports < 6.1) and Next.js use |
+| Next.js / React | 16.3.6 / 19.3.0 | 16.3.7 was under a day old; pnpm's release-age policy stays on with no exemptions |
+| pnpm | 12.8.1 | `minimumReleaseAge` (24 h) enforced; install scripts allowed only for esbuild |
+| Node.js | 22 LTS | Vitest 5 needs ≥ 22.12 |
+| Zod / Kysely / MCP SDK | 4.6.5 / 0.29.6 / 1.31.0 | Current stable |
+| Supabase CLI | 2.109.1 | Its images were already on the development machine (disk is tight); CI pulls its own |
 
 ## Repository layout
 
@@ -100,12 +111,13 @@ apps/
   worker/         scheduler · agent runtime · agents/ · verification/
   mcp-server/     tools, egress policy, evidence capture (stdio + HTTP)
 packages/
-  contracts/      Zod domain contracts (this phase)
-  db/             Kysely client, generated types, repositories, workspace-scoped transactions
-  core/           domain rules shared by web + worker: commands, state machines, budgets, approvals
-  llm/            provider interface, router, adapters, pricing, scripted fake for tests
-  providers/      search / company / people provider interfaces + adapters (used only by mcp-server)
-  config/         tsconfig and lint presets, env validation, logger
+  contracts/      Zod domain contracts
+  db/             Kysely client, generated types, workspace-scoped transactions
+  config/         tsconfig presets, env validation, logger
+  core/           (Phase 2) domain rules shared by web + worker: commands, state machines, budgets, approvals
+  llm/            (Phase 3) provider interface, router, adapters, pricing, scripted fake for tests
+  providers/      (Phase 3) search / company / people provider interfaces + adapters (used only by mcp-server)
+scripts/          setup-local-env.mjs (local credentials and .env.local files)
 supabase/         migrations/ (source of truth), tests/ (pgTAP), seed.sql
 evals/            cases/, fixtures/, baselines/, runner
 docs/             this documentation and adr/
@@ -134,8 +146,8 @@ docs/             this documentation and adr/
 
 | Phase | Delivers | Done when |
 |---|---|---|
-| 0 Architecture | These documents, ADRs, verified contracts | Approved |
-| 1 Foundation | Monorepo, strict TS, lint, Vitest, env validation, first migration (tenancy + RLS), auth, personal workspace on signup, CI, deployable web/worker/MCP skeletons | typecheck, lint, tests, build, migrations, local startup and CI all green |
+| 0 Architecture ✅ | These documents, ADRs, verified contracts | Approved |
+| 1 Foundation ✅ | Monorepo, strict TS, lint, Vitest, env validation, first migration (tenancy + RLS), auth, personal workspace on signup, CI, deployable web/worker/MCP skeletons | typecheck, lint, tests, build, migrations, local startup and CI all green |
 | 2 Workflow engine | Runs, tasks, dependencies, events, approvals; claim/lease/heartbeat/reap/expand/promote; budgets; cancellation; test task types | Multi-worker and kill-mid-task tests pass against real Postgres |
 | 3 Tools + LLM + first agent | MCP server (search, fetch, egress, provenance, tokens, audit), LLM router + adapters, agent loop, Research agent, eval harness v0 | A traced discovery run on real sources; replay eval passes |
 | 4 Evidence + verification | Sources, claims, evidence, grounding, judge, policies, confidence, gaps, planner, thin run view | First end-to-end run: plan → discover → verify → report |

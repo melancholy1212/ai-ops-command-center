@@ -71,9 +71,37 @@ not in chat or in the repository:
 
 ## Local development
 
-- `pnpm install`, copy `.env.example` files to `.env.local`, then `pnpm db:start` and `pnpm dev`.
-- The Supabase CLI is pinned to a version whose container images are already on the development machine, and
-  `db:start` excludes services the project doesn't use (Studio, Storage, edge runtime, logging). The machine has
-  about 5 GB of free disk; one CLI upgrade can pull several GB of images.
-- Credentials that aren't configured stay as placeholders. Everything that doesn't need them keeps working:
-  replay evals, unit tests, the UI against local data.
+```bash
+pnpm install
+pnpm db:start        # local Supabase: Postgres, Auth, API gateway, Realtime (migrations applied)
+pnpm setup:local     # random local password for aoc_service + git-ignored .env.local files
+pnpm dev             # web on :3000, worker health on :8081, MCP server health on :8082
+```
+
+| Command | Does |
+|---|---|
+| `pnpm check` | format check, lint, typecheck, unit tests, build (what CI's first job runs) |
+| `pnpm db:test` | pgTAP suite: roles, RLS, signup trigger |
+| `pnpm test:integration` | database integration tests, connected as `aoc_service` |
+| `pnpm db:reset` | recreate the local database and re-apply migrations |
+| `pnpm db:types` / `pnpm --filter @aoc/web gen:types` | regenerate Kysely / Supabase types from the local schema |
+
+- The local stack uses its own ports (API 55321, Postgres 55322), so it never collides with another project's
+  default 543xx stack. Studio, Storage, local mail, edge functions and analytics are disabled in `supabase/config.toml`.
+- The Supabase CLI is pinned to 2.109.1 because its container images were already on the development machine.
+  `supabase/.temp/postgres-version` (git-ignored, local only) pins the Postgres image that is on disk; CI pulls the
+  CLI's default image.
+- `pnpm setup:local` never prints a secret. It can be rerun at any time (it rotates the local password).
+- Credentials that aren't configured stay as placeholders. Everything that doesn't need them keeps working.
+
+## Production database role (one-time)
+
+Migrations create `aoc_service` without a password. Before the worker or MCP server first connects to the cloud
+database, set one out of band:
+1. Generate a strong password locally.
+2. Run `alter role aoc_service password '<generated>';` in the Supabase SQL editor.
+3. Store the password only in the Railway and Vercel `DATABASE_URL` variables, connecting as `aoc_service.<project-ref>`
+   through the pooler.
+
+Whether Supabase's pooler accepts the custom role is the open validation item from
+[ADR-0005](adr/0005-workspace-isolation.md); it is checked at the first deploy.

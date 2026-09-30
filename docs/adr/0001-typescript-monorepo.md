@@ -17,6 +17,11 @@ pnpm workspaces for dependencies, Turborepo for task orchestration and caching.
 - Weaker content-extraction libraries than Python's; acceptable for the MVP, and a Python extraction service could
   sit behind the MCP server later without touching agents.
 
+## Note (Phase 1)
+TypeScript is pinned to 6.0.3. The `latest` release, 7.x, no longer ships the compiler API that typescript-eslint
+and Next.js's build-time type check rely on (`require('typescript').createProgram` is undefined), and typescript-eslint
+supports TypeScript below 6.1. Moving to 7.x waits for that tooling.
+
 ## Alternatives considered
 - **Python backend + TypeScript frontend:** stronger AI and extraction ecosystem, but two type systems, duplicated
   contracts (Pydantic and Zod) and two toolchains, for a system whose work is mostly waiting on network calls.
