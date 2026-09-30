@@ -16,18 +16,20 @@ Finding → Claim → Evidence → Source snapshot → exact quote
 
 ## Status
 
-**Phase 2 (workflow engine) is complete.** Each phase ends with typecheck, lint, tests, build and CI green before the
+**Phase 3 (tools, LLM layer, first agent) is complete.** Each phase ends with typecheck, lint, tests, build and CI green before the
 next begins.
 
 | Area | Built | Not yet |
 |---|---|---|
 | Monorepo | pnpm 12 + Turborepo, strict TypeScript 6.0, ESLint 10, Prettier, Vitest, CI | — |
 | Contracts | Zod schemas for runs, tasks, executions, claims, evidence, approvals, findings, MCP tools, events | — |
-| Database | Workspaces, members, projects; runs, tasks, dependencies, approvals, run events, audit log; row-level security for users and for the backend role; claim and lease-recovery functions; pgTAP + integration tests | Evidence and telemetry tables (Phase 3+) |
+| Database | Workspaces, members, projects; runs, tasks, dependencies, approvals, run events, audit log; agent executions, messages, model and tool calls; discovered URLs and source snapshots; rate limits; row-level security for users and for the backend role; pgTAP + integration tests | Claims, evidence, findings (Phase 4+) |
 | Workflow engine | Durable task graph with fenced leases, heartbeats, lease recovery, retries with backoff, hard/soft dependencies, idempotent expansion, cycle rejection, cancel/pause/resume, budgets with extension approvals, hash-checked human approvals, plan replanning | Real task handlers (Phase 3+) |
 | Web | Supabase email/password auth, session refresh, dashboard shell | Runs, graph, evidence, approvals UI (Phases 2–6) |
-| Worker | Scheduler: concurrent claims, heartbeats, time limits, lease recovery, graceful shutdown that hands tasks back; tested with competing workers and a SIGKILLed worker | Agents and task handlers (Phases 3–5) |
-| MCP server | MCP handshake over stdio, health endpoint | Tools and authentication (Phase 3) |
+| Worker | Scheduler (concurrent claims, heartbeats, time limits, lease recovery, graceful shutdown); agent runtime (bounded tool loop, capability tokens, full telemetry); Research agent for discovery | Planner, verifier, company and people agents, analyst, writer (Phases 4–5) |
+| LLM layer | Route classes to model bindings, circuit breakers, Anthropic and OpenAI-compatible (Earthruntime) adapters, pricing, record/replay | — |
+| MCP server | Authenticated Streamable HTTP endpoint (per-execution EdDSA capability tokens), `web_search`, `fetch_page`, `get_source`; provenance-bound fetching through an SSRF-safe fetcher; audit and spend per call | `search_knowledge` (Phase 4), registry tools (Phase 5), workspace API keys |
+| Evals | Replay harness through the production code path; a synthetic discovery case gated in CI; live real-web runs with full traces | Grounding and verification metrics (Phase 4) |
 
 ## Run it locally
 

@@ -1,0 +1,6 @@
+{
+  "extends": "@aoc/config/tsconfig/base.json",
+  // DOM types: the MCP server's HTML extractor is compiled as part of the harness.
+  "compilerOptions": { "lib": ["ES2023", "DOM", "DOM.Iterable"] },
+  "include": ["src"]
+}

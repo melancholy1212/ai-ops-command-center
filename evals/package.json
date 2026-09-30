@@ -1,0 +1,29 @@
+{
+  "name": "@aoc/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "tsx --env-file-if-exists=../apps/worker/.env.local --env-file-if-exists=../apps/mcp-server/.env.local src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@aoc/config": "workspace:*",
+    "@aoc/contracts": "workspace:*",
+    "@aoc/core": "workspace:*",
+    "@aoc/db": "workspace:*",
+    "@aoc/llm": "workspace:*",
+    "@aoc/mcp-server": "workspace:*",
+    "@aoc/worker": "workspace:*",
+    "jose": "6.2.12",
+    "kysely": "0.29.6",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "pg": "8.23.0",
+    "tsx": "4.23.15",
+    "vitest": "5.0.2"
+  }
+}

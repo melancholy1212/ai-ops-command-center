@@ -1,0 +1,26 @@
+{
+  "cases": {
+    "discovery-synthetic-nordic-climate": {
+      "taskStatus": "succeeded",
+      "taskFailure": null,
+      "executionStatus": "succeeded",
+      "turns": 6,
+      "llmCalls": 6,
+      "toolCalls": 4,
+      "toolErrors": {},
+      "costUsdMicros": 9166,
+      "inputTokens": 17712,
+      "outputTokens": 3714,
+      "sources": 3,
+      "sourceHosts": ["fjordnews.example", "nordictech.example"],
+      "flaggedSources": 0,
+      "claimsProposed": 10,
+      "companiesProposed": ["Fjordlight Energy Analytics", "HelioGrid", "Northwind Climate"],
+      "expectedFound": ["Northwind Climate", "Fjordlight Energy Analytics", "HelioGrid"],
+      "expectedMissing": [],
+      "forbiddenProposed": [],
+      "forbiddenHostsFetched": [],
+      "quoteMatchRate": 1
+    }
+  }
+}

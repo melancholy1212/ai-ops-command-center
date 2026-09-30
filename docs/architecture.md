@@ -1,10 +1,11 @@
 # Architecture overview
 
-Status: **Phase 2 (workflow engine) complete.** Implemented: the monorepo and tooling, the domain contracts, tenancy
-with row-level security, Supabase auth with a personal workspace per user, the web app shell, the MCP server skeleton,
-and the workflow engine: the Postgres task graph, `@aoc/core` (transitions, commands, approvals, budgets) and the
-worker scheduler. Agents, tools, verification and the run UI described below are designed but not built yet; see the
-build phases at the end.
+Status: **Phase 3 (tools, LLM layer, first agent) complete.** Implemented: the monorepo and tooling, the domain
+contracts, tenancy with row-level security, Supabase auth with a personal workspace per user, the web app shell, the
+workflow engine (Postgres task graph, `@aoc/core`, worker scheduler), the LLM layer (`@aoc/llm`: router, Anthropic and
+OpenAI-compatible adapters, pricing, record/replay), the MCP server with capability tokens, the egress-safe fetcher and
+three tools, the agent runtime with the Research agent for discovery, and the eval harness. Verification, the planner,
+the other agents and the run UI described below are designed but not built yet; see the build phases at the end.
 
 ## What the system does
 
@@ -116,11 +117,11 @@ packages/
   db/             Kysely client, generated types, workspace-scoped transactions
   config/         tsconfig presets, env validation, logger
   core/           domain rules shared by web + worker: commands, transitions, approvals, budgets
-  llm/            (Phase 3) provider interface, router, adapters, pricing, scripted fake for tests
+  llm/            provider interface, router, adapters, pricing, record/replay, scripted fake for tests
   providers/      (Phase 3) search / company / people provider interfaces + adapters (used only by mcp-server)
 scripts/          setup-local-env.mjs (local credentials and .env.local files)
 supabase/         migrations/ (source of truth), tests/ (pgTAP), seed.sql
-evals/            cases/, fixtures/, baselines/, runner
+evals/            cases/ (case + recorded fixtures), baselines/, runner (src/)
 docs/             this documentation and adr/
 ```
 
@@ -150,7 +151,7 @@ docs/             this documentation and adr/
 | 0 Architecture ✅ | These documents, ADRs, verified contracts | Approved |
 | 1 Foundation ✅ | Monorepo, strict TS, lint, Vitest, env validation, first migration (tenancy + RLS), auth, personal workspace on signup, CI, deployable web/worker/MCP skeletons | typecheck, lint, tests, build, migrations, local startup and CI all green |
 | 2 Workflow engine ✅ | Runs, tasks, dependencies, events, approvals; claim/lease/heartbeat/reap/expand/promote; budgets; cancellation; scheduler with scripted handlers in tests | Multi-worker and kill-mid-task tests pass against real Postgres |
-| 3 Tools + LLM + first agent | MCP server (search, fetch, egress, provenance, tokens, audit), LLM router + adapters, agent loop, Research agent, eval harness v0 | A traced discovery run on real sources; replay eval passes |
+| 3 Tools + LLM + first agent ✅ | MCP server (search, fetch, egress, provenance, tokens, audit), LLM router + adapters, agent loop, Research agent, eval harness v0 | A traced discovery run on real sources; replay eval passes |
 | 4 Evidence + verification | Sources, claims, evidence, grounding, judge, policies, confidence, gaps, planner, thin run view | First end-to-end run: plan → discover → verify → report |
 | 5 Full workflow | Company + People agents, registry providers, gap-fill, ranking + analysis, outreach, approvals, export | Flagship objective completes |
 | 6 Control room UI | Dashboard, live run view, drill-down, approvals, agents, MCP, evidence pages | Usable without the database console |

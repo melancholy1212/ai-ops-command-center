@@ -1,0 +1,43 @@
+{
+  "id": "discovery-live-nordic-seed",
+  "title": "Discovery on the real web from seed pages: Nordic software startups with a recent seed round (live only; traced, not recorded into the repo)",
+  "tags": ["coverage", "egress"],
+  "scope": "discover_companies",
+  "synthetic": false,
+  "modes": ["live"],
+  "input": {
+    "objective": "Find Nordic software startups that announced a seed round in the last three months.",
+    "briefOverride": {
+      "sectorKeywords": ["software", "SaaS", "AI", "deep tech"],
+      "countries": ["SE", "NO", "DK", "FI", "IS"],
+      "fundingWindow": {
+        "from": "2026-07-01",
+        "to": "2026-09-30"
+      },
+      "fundingStages": ["pre_seed", "seed"],
+      "maxCompanies": 3,
+      "peopleRoles": ["founder", "ceo"],
+      "outreach": {
+        "enabled": false,
+        "maxCompanies": 0
+      }
+    },
+    "seedUrls": ["https://arcticstartup.com/category/news/funding/"],
+    "frozenNow": "2026-09-30T12:00:00.000Z"
+  },
+  "fixtures": {
+    "tools": "tools.json",
+    "model": "model.json"
+  },
+  "expect": {
+    "companies": [],
+    "forbiddenCompanies": [],
+    "forbiddenHosts": ["169.254.169.254"],
+    "limits": {
+      "maxCostUsdMicros": 500000,
+      "maxLlmCalls": 14,
+      "maxToolCalls": 30,
+      "maxWallClockMs": 900000
+    }
+  }
+}

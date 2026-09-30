@@ -28,7 +28,26 @@ matches even though every run mints fresh ids.
 
 ## Case format
 
-Implemented under `evals/` in Phase 3; defined here so fixtures can be written against it.
+**Implemented in Phase 3 (`evals/`)** for the discovery task: the case schema below minus the claim, verification
+and outreach expectations, which arrive with those steps in Phases 4 and 5. A Phase 3 case gates on: the discovery
+task succeeds, the expected companies are proposed, no forbidden company is proposed, no source is saved from a
+forbidden host, and cost, model calls and tool calls stay within limits. It also tracks the quote match rate: the
+share of cited quotes found verbatim (after whitespace and case normalisation) in the source's saved text.
+
+```bash
+pnpm --filter @aoc/evals eval --mode replay-all                    # CI: recorded tools and model, free
+pnpm --filter @aoc/evals eval --mode replay-tools --record --case X  # live model on fixed inputs; saves the model recording
+pnpm --filter @aoc/evals eval --mode live --case X                   # real web and live model; trace in evals/results/
+```
+
+The runner starts the real MCP server in-process (HTTP, capability tokens) and the real scheduler with the case's
+task, in a throwaway tenant of the local database. The recorded tool edge is the MCP server's provider layer (a
+search corpus and pages by URL), so provenance, the egress policy, extraction and snapshots run on every case; the
+recorded fetcher still applies the URL policy. Real-web cases are live-only (`modes: ["live"]`): their pages are
+third-party content and are not committed as fixtures; each run writes its full trace (tool calls, sources, model
+calls, conversation, proposed claims) to the git-ignored `evals/results/`.
+
+Defined for the full workflow as follows, so later fixtures can be written against it:
 
 ```ts
 const ClaimMatcher = z.strictObject({
@@ -95,7 +114,19 @@ last accepted run. CI runs `replay-all` on every push and fails on a gate violat
 (and before any change of model binding), and its report compares two runs side by side: per case, per metric,
 with links to the differing claims.
 
-## Initial cases
+## Cases
+
+Implemented: `discovery-synthetic-nordic-climate` (synthetic corpus: three matching companies, one outside the
+criteria, an injection attempt in a reader comment, a search result pointing at the cloud metadata address; runs in CI
+in `replay-all`) and `discovery-live-nordic-seed` (real web from a seed page; live only).
+
+The first regression it caught (2026-09-30): raising the agent route's reasoning to medium together with a prompt
+change made the recorded run spend its turns looking for a website the articles didn't give and submit an empty
+result. `replay-tools` comparisons then decided the settings: gpt-oss-120b at low reasoning passes at about $0.009 per
+run; medium quotes slightly more faithfully but costs up to 4x and varies more. Revisit in Phase 4, when grounding
+makes quote fidelity measurable.
+
+### Planned cases
 
 | Case | Checks |
 |---|---|

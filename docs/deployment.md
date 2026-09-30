@@ -51,11 +51,12 @@ Never pasted into chat, never committed. `.env.example` files list every variabl
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase | `.env.local` | yes | — | — | — |
 | `DATABASE_URL` (as `app_backend`) | Supabase | `.env.local` | yes (commands) | yes | yes | — |
 | `SUPABASE_DB_PASSWORD` | Supabase | — | — | — | — | secret (migrations) |
-| `MCP_CAPABILITY_SIGNING_KEY` | generated Ed25519 private key | `.env.local` | — | yes | — | — |
-| `MCP_CAPABILITY_VERIFY_KEY` | its public key | `.env.local` | — | — | yes | — |
+| `CAPABILITY_PRIVATE_JWK` | generated Ed25519 private key (JWK; `setup:local` makes one) | `.env.local` | — | yes | — | — |
+| `CAPABILITY_PUBLIC_JWK` | its public key (JWK) | `.env.local` | — | — | yes | — |
+| `MCP_URL` | the MCP server's `/mcp` endpoint (private network) | `.env.local` | — | yes | — | — |
 | `ANTHROPIC_API_KEY` | Anthropic Console (not Claude Code Max) | `.env.local` | — | yes | — | — |
-| `EARTHRUNTIME_API_KEY` | Earthruntime | `.env.local` | — | yes | — | — |
-| `TAVILY_API_KEY` | Tavily | `.env.local` | — | — | yes | — |
+| `EARTHRUNTIME_API_KEY` | Earthruntime | `.env.local` | — | yes | — | — (evals replay recordings) |
+| `TAVILY_API_KEY` | Tavily (free plan: 1,000 credits/month) | `.env.local` | — | — | yes | — |
 | `COMPANIES_HOUSE_API_KEY` | UK Companies House | `.env.local` | — | — | yes | — |
 
 The Supabase service-role key is not in this table on purpose: no running service uses it.

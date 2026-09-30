@@ -36,7 +36,7 @@ jobs:
       - run: pnpm build
 
   database:
-    name: Migrations, RLS and integration tests
+    name: Migrations, RLS, integration tests and evals
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -53,5 +53,9 @@ jobs:
         run: pnpm exec supabase test db
       - name: Integration tests (as a login role identical to aoc_service)
         run: pnpm test:integration
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:55322/postgres
+      - name: Evals (replay-all, recorded tools and model, through the production code path)
+        run: pnpm --filter @aoc/evals eval --mode replay-all
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:55322/postgres

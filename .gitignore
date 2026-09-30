@@ -19,3 +19,4 @@ supabase/.temp/
 # os / editor
 .DS_Store
 *.log
+evals/results/

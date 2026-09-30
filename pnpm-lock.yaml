@@ -347,6 +347,52 @@ importers:
         specifier: 5.0.2
         version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
+  evals:
+    dependencies:
+      '@aoc/config':
+        specifier: workspace:*
+        version: link:../packages/config
+      '@aoc/contracts':
+        specifier: workspace:*
+        version: link:../packages/contracts
+      '@aoc/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@aoc/db':
+        specifier: workspace:*
+        version: link:../packages/db
+      '@aoc/llm':
+        specifier: workspace:*
+        version: link:../packages/llm
+      '@aoc/mcp-server':
+        specifier: workspace:*
+        version: link:../apps/mcp-server
+      '@aoc/worker':
+        specifier: workspace:*
+        version: link:../apps/worker
+      jose:
+        specifier: 6.2.12
+        version: 6.2.12
+      kysely:
+        specifier: 0.29.6
+        version: 0.29.6
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+      pg:
+        specifier: 8.23.0
+        version: 8.23.0
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
+      vitest:
+        specifier: 5.0.2
+        version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
   packages/config:
     dependencies:
       pino:
