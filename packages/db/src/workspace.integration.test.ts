@@ -1,4 +1,5 @@
-// Runs against the local Supabase stack (`pnpm db:start`), connected as the real login role.
+// Runs against the local Supabase stack (`pnpm db:start`). It connects as a throwaway login role configured
+// exactly like aoc_service (asserted below), so tests never change the credentials local development uses.
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { WorkspaceId } from '@aoc/contracts';
 import { sql } from 'kysely';
@@ -11,17 +12,33 @@ import { withWorkspace } from './workspace';
 const ADMIN_URL = process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55322/postgres';
 
 const admin = new pg.Client({ connectionString: ADMIN_URL });
+const testRole = `aoc_it_${randomBytes(6).toString('hex')}`;
 const alice = randomUUID();
 const bob = randomUUID();
 let service: Database;
 let aliceWs: WorkspaceId;
 let bobWs: WorkspaceId;
 
+// The attributes that make aoc_service safe: login, no inheritance, no RLS bypass, SET-only membership.
+const ROLE_SHAPE = `
+  select r.rolcanlogin, r.rolinherit, r.rolbypassrls, m.inherit_option, m.set_option, m.admin_option
+  from pg_roles r
+  join pg_auth_members m on m.member = r.oid
+  join pg_roles g on g.oid = m.roleid and g.rolname = 'app_backend'
+  where r.rolname = $1`;
+
 beforeAll(async () => {
   await admin.connect();
-  // A throwaway password for the login role, generated per run and never stored.
+  // Roles left behind by an interrupted earlier run.
+  const stale = await admin.query<{ rolname: string }>(
+    "select rolname from pg_roles where rolname like 'aoc\\_it\\_%'",
+  );
+  for (const { rolname } of stale.rows) await admin.query(`drop role if exists "${rolname}"`);
+
+  // Generated per run and never stored.
   const password = randomBytes(24).toString('hex');
-  await admin.query(`alter role aoc_service password '${password}'`);
+  await admin.query(`create role ${testRole} login noinherit nobypassrls password '${password}'`);
+  await admin.query(`grant app_backend to ${testRole} with inherit false, set true`);
 
   for (const [id, name] of [
     [alice, 'alice'],
@@ -40,7 +57,7 @@ beforeAll(async () => {
   bobWs = rows.find((r) => r.user_id === bob)!.workspace_id;
 
   const url = new URL(ADMIN_URL);
-  url.username = 'aoc_service';
+  url.username = testRole;
   url.password = password;
   // One connection, so the leak test below provably reuses the same physical connection.
   service = createDb(url.toString(), { applicationName: 'db-integration-test', maxConnections: 1 });
@@ -50,10 +67,18 @@ afterAll(async () => {
   await service.destroy();
   await admin.query('delete from public.workspaces where id = any($1)', [[aliceWs, bobWs]]);
   await admin.query('delete from auth.users where id = any($1)', [[alice, bob]]);
+  await admin.query(`drop role if exists ${testRole}`);
   await admin.end();
 });
 
-describe('withWorkspace, connected as aoc_service', () => {
+describe('withWorkspace, connected as a login role identical to aoc_service', () => {
+  it('uses a role configured exactly like aoc_service', async () => {
+    const real = await admin.query(ROLE_SHAPE, ['aoc_service']);
+    const test = await admin.query(ROLE_SHAPE, [testRole]);
+    expect(real.rows).toHaveLength(1);
+    expect(test.rows).toEqual(real.rows);
+  });
+
   it('reaches the database without any table privileges', async () => {
     await expect(ping(service)).resolves.toBeUndefined();
   });
@@ -91,7 +116,7 @@ describe('withWorkspace, connected as aoc_service', () => {
     const { rows } = await sql<{ role: string; scope: string | null }>`
       select current_user as role, nullif(current_setting('app.workspace_id', true), '') as scope
     `.execute(service);
-    expect(rows[0]).toEqual({ role: 'aoc_service', scope: null });
+    expect(rows[0]).toEqual({ role: testRole, scope: null });
   });
 
   it('rolls everything back when the callback throws', async () => {

@@ -82,7 +82,7 @@ pnpm dev             # web on :3000, worker health on :8081, MCP server health o
 |---|---|
 | `pnpm check` | format check, lint, typecheck, unit tests, build (what CI's first job runs) |
 | `pnpm db:test` | pgTAP suite: roles, RLS, signup trigger |
-| `pnpm test:integration` | database integration tests, connected as `aoc_service` |
+| `pnpm test:integration` | database integration tests, connected as a throwaway role identical to `aoc_service` |
 | `pnpm db:reset` | recreate the local database and re-apply migrations |
 | `pnpm db:types` / `pnpm --filter @aoc/web gen:types` | regenerate Kysely / Supabase types from the local schema |
 

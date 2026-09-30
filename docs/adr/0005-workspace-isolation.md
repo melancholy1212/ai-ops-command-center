@@ -18,12 +18,13 @@ query remembering a `WHERE workspace_id = ...`. Here, much of that code runs on 
 Services connect as `aoc_service` (`LOGIN NOINHERIT`), a member of `app_backend` with `SET` only. On its own it can
 read nothing. `withWorkspace()` in `packages/db` opens a transaction, runs `SET LOCAL ROLE app_backend` and
 `set_config('app.workspace_id', …, true)`. Both are transaction-local, so a pooled connection is clean for its next
-user. Verified locally by pgTAP and by integration tests that connect as `aoc_service`.
+user. Verified by pgTAP and by integration tests that connect as a per-run login role configured exactly like
+`aoc_service`.
 
 ## Consequences
 - A bug in agent or tool code cannot read another tenant's rows; the database refuses.
 - Every tenant table carries `workspace_id` with composite foreign keys, so RLS stays a single indexed check.
-- Must be validated against Supabase's connection pooler in Phase 1. Fallback if a custom role fights the tooling:
+- Must be validated against Supabase's connection pooler at the first cloud deploy (docs/deployment.md). Fallback if a custom role fights the tooling:
   service connection plus one mandatory workspace-scoped repository layer, with the same tests.
 
 ## Alternatives considered

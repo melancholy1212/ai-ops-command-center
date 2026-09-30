@@ -86,8 +86,9 @@ Kysely using types generated from the database; the browser reads through Supaba
 | `aoc_service` | `LOGIN NOINHERIT NOBYPASSRLS`, member of `app_backend` with `SET` only | The role services connect as. It has no privileges until `withWorkspace()` runs `SET LOCAL ROLE app_backend` and sets `app.workspace_id` in the transaction |
 | `postgres` | admin | Also granted `SET` (not inherit) on `app_backend`: Postgres 16+ does not let a role's creator assume it automatically, and tests and admin tooling need to |
 
-Verified by pgTAP (`supabase/tests/tenancy.test.sql`, 21 checks) and by integration tests that connect as
-`aoc_service` (`packages/db/src/workspace.integration.test.ts`): scoping, refusal outside the workspace, rollback,
+Verified by pgTAP (`supabase/tests/tenancy.test.sql`, 21 checks) and by integration tests that connect as a
+throwaway login role configured exactly like `aoc_service` (asserted), created and dropped per run so tests
+never touch development credentials (`packages/db/src/workspace.integration.test.ts`): scoping, refusal outside the workspace, rollback,
 and no leak of role or scope to the next user of a pooled connection.
 
 Implemented so far: `workspaces`, `workspace_members`, `projects`, the RLS helpers, the roles, and the signup
