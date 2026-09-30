@@ -180,7 +180,7 @@ async function execution(runId: RunId) {
     cost_usd_micros: string;
     prompt_hash: string;
     agent_version: string;
-  }>('select * from public.agent_executions where run_id = $1', [runId]);
+  }>('select * from public.agent_executions where run_id = $1 order by started_at', [runId]);
   return rows;
 }
 
@@ -250,22 +250,21 @@ describe('discovery agent', () => {
     );
     expect(task[0]?.output.summary).toEqual({ claimsProposed: 1, companies: 1 });
 
-    // Code grounded and saved the proposal, then expanded the graph from it.
+    // Code grounded and saved the proposal, then expanded the graph from it. (Its status is checked after
+    // verification: the scheduler may already have verified it by now.)
     const { rows: claims } = await h.admin.query<{
       attribute: string;
-      status: string;
       statement: string;
       company: string;
       domain: string;
     }>(
-      `select c.attribute, c.status, c.statement, co.name as company, co.primary_domain as domain
+      `select c.attribute, c.statement, co.name as company, co.primary_domain as domain
        from public.claims c join public.companies co on co.id = c.subject_company_id where c.run_id = $1`,
       [runId],
     );
     expect(claims).toEqual([
       {
         attribute: 'company.hq_country',
-        status: 'grounded',
         statement: 'Northwind Climate is headquartered in Sweden.',
         company: 'Northwind Climate',
         domain: 'northwind.example',
