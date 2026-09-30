@@ -137,7 +137,9 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
     description: 'Submit your final result. Call it exactly once, when you are done; the schema is enforced.',
     inputSchema: toJsonSchema(role.output),
   };
-  const modelTools = [...allowed, submit];
+  /** Tools that reported they cannot work in this execution (e.g. no provider configured); no longer offered. */
+  const unavailable = new Set<string>();
+  const modelTools = () => [...allowed.filter((t) => !unavailable.has(t.name)), submit];
   const messages: ConversationMessage[] = [{ role: 'user', content: role.taskMessage(input) }];
   const seenSources = new Set<string>();
   let turns = 0;
@@ -146,7 +148,7 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
   let nudged = false;
   let forceSubmit = false;
 
-  await recorder.message('system', { text: role.system, tools: modelTools.map((t) => t.name) });
+  await recorder.message('system', { text: role.system, tools: modelTools().map((t) => t.name) });
   await recorder.message('user', { text: messages[0]?.role === 'user' ? messages[0].content : '' });
 
   const call = async (
@@ -160,7 +162,7 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
     const request: Omit<LlmRequest, 'binding'> = {
       system: role.system,
       messages: [...messages],
-      tools: responseFormat ? [] : modelTools,
+      tools: responseFormat ? [] : modelTools(),
       toolChoice: responseFormat ? { type: 'none' } : toolChoice,
       ...(responseFormat ? { responseFormat } : {}),
       maxOutputTokens: role.limits.maxOutputTokensPerCall,
@@ -227,11 +229,48 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
     return problems.length > 0 ? { ok: false, problems } : { ok: true, value: parsed.data };
   };
 
+  /** Last resort for models without forced tool choice: one schema-constrained answer without tools. */
+  const finish = async (why: string): Promise<O> => {
+    messages.push({
+      role: 'user',
+      content: [why, 'Reply with your final result as JSON matching the schema.'].filter(Boolean).join(' '),
+    });
+    await recorder.message('user', { text: 'final structured answer' });
+    const { response: final } = await call({ type: 'none' }, { name: 'result', schema: submit.inputSchema });
+    let candidate: unknown;
+    try {
+      candidate = JSON.parse(final.text ?? '');
+    } catch {
+      throw new TaskFailure('LLM_OUTPUT_INVALID', 'The final answer was not valid JSON.');
+    }
+    const checked = validate(candidate);
+    if (checked.ok) return checked.value;
+    throw new TaskFailure(
+      'LLM_OUTPUT_INVALID',
+      `The final answer failed validation: ${checked.problems.join('; ').slice(0, 500)}`,
+    );
+  };
+
+  let lastBinding: ModelBinding | undefined = router.candidates(role.route)[0];
+  let finalTurn = false;
   for (;;) {
-    if (turns >= role.limits.maxTurns || now() > deadline) {
+    if (finalTurn) {
       throw new TaskFailure('AGENT_LIMIT_REACHED', `Stopped after ${String(turns)} turns without a valid result.`);
     }
+    // The last turn is reserved for the result, so reaching the limit never throws away what was found.
+    if (turns >= role.limits.maxTurns - 1 || now() > deadline) {
+      finalTurn = true;
+      if (lastBinding && !capabilitiesOf(lastBinding.model).forcedToolChoice)
+        return finish('You have used all your turns.');
+      forceSubmit = true;
+      messages.push({
+        role: 'user',
+        content: `You have used all your turns. Call ${SUBMIT_TOOL} now, including every claim you can support with quotes from the pages you already read.`,
+      });
+      await recorder.message('user', { text: 'final turn' });
+    }
     const { response, binding } = await call(forceSubmit ? { type: 'tool', name: SUBMIT_TOOL } : { type: 'auto' });
+    lastBinding = binding;
     turns += 1;
     messages.push({
       role: 'assistant',
@@ -265,21 +304,7 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
         await recorder.message('user', { text: 'force submit' });
         continue;
       }
-      // Last resort for models without forced tool choice: one schema-constrained answer without tools.
-      messages.push({ role: 'user', content: 'Reply with your final result as JSON matching the schema.' });
-      const { response: final } = await call({ type: 'none' }, { name: 'result', schema: submit.inputSchema });
-      let candidate: unknown;
-      try {
-        candidate = JSON.parse(final.text ?? '');
-      } catch {
-        throw new TaskFailure('LLM_OUTPUT_INVALID', 'The final answer was not valid JSON.');
-      }
-      const checked = validate(candidate);
-      if (checked.ok) return checked.value;
-      throw new TaskFailure(
-        'LLM_OUTPUT_INVALID',
-        `The final answer failed validation: ${checked.problems.join('; ').slice(0, 500)}`,
-      );
+      return finish('');
     }
 
     const results: ToolResult[] = [];
@@ -316,6 +341,10 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
         refuse('TOOL_NOT_PERMITTED', `${toolCall.name} is not one of your tools.`);
         return;
       }
+      if (unavailable.has(toolCall.name)) {
+        refuse('TOOL_NOT_PERMITTED', `${toolCall.name} is unavailable in this task; work with your other tools.`);
+        return;
+      }
       if (toolCallsUsed >= role.limits.maxToolCalls) {
         refuse('BUDGET_EXCEEDED', `Tool budget used up. Call ${SUBMIT_TOOL} with what you have.`);
         return;
@@ -323,6 +352,8 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
       toolCallsUsed += 1;
       const outcome = await tools.call(toolCall.name, args, toolCall.id, signal);
       if (outcome.ok && typeof outcome.output.sourceId === 'string') seenSources.add(outcome.output.sourceId);
+      if (!outcome.ok && outcome.error.code === 'PROVIDER_UNAVAILABLE' && !outcome.error.retryable)
+        unavailable.add(toolCall.name);
       push(outcome);
     });
     await Promise.all(work);

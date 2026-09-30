@@ -22,6 +22,7 @@ const QUOTE = 'Northwind Climate, the Stockholm carbon accounting startup, raise
 const input: DiscoveryInput = {
   objective: 'Find seed-stage climate software companies in the Nordics.',
   today: '2026-09-30',
+  seedUrls: [],
   criteria: {
     sectorKeywords: ['climate software'],
     countries: ['SE', 'NO'],
@@ -245,6 +246,30 @@ describe('tool loop', () => {
     expect(((await run(truncated)).result as { error: TaskFailure }).error).toMatchObject({ code: 'LLM_TRUNCATED' });
   });
 
+  it('reserves the last turn for the result instead of discarding what was found', async () => {
+    const role = { ...discoveryRole, limits: { ...discoveryRole.limits, maxTurns: 3 } };
+    const provider = earthruntime([
+      turn(toolCall('web_search', { query: 'Nordic climate software seed' })),
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+    ]);
+    const { result } = await run(provider, { role });
+    expect(result).toEqual({ ok: true, value: { claims: [claim()] } });
+    expect(provider.requests[2]?.toolChoice).toEqual({ type: 'tool', name: SUBMIT_TOOL });
+    const last = provider.requests[2]?.messages.at(-1);
+    expect(last?.role === 'user' && last.content).toMatch(/used all your turns/);
+
+    // A model without forced tool choice gets one schema-constrained answer on its last turn.
+    const opus = anthropic([
+      turn(toolCall('web_search', { query: 'first query' })),
+      turn(toolCall('web_search', { query: 'second query' })),
+      { text: JSON.stringify({ claims: [] }) },
+    ]);
+    const structured = await run(opus, { role });
+    expect(structured.result).toEqual({ ok: true, value: { claims: [] } });
+    expect(opus.requests[2]?.responseFormat?.name).toBe('result');
+  });
+
   it('checks the budget before every model call', async () => {
     const provider = earthruntime([turn(toolCall(SUBMIT_TOOL, { claims: [] }))]);
     const { result } = await run(provider, { budget: ['cost'] });
@@ -265,6 +290,42 @@ describe('tool loop', () => {
     });
     expect(rec.calls).toHaveLength(1);
     expect(rec.calls[0]).toMatchObject({ response: null, retryCount: 3, failure: { code: 'PROVIDER_UNAVAILABLE' } });
+  });
+
+  it('stops offering a tool that reports it cannot work in this task', async () => {
+    const client = tools();
+    const original = client.call.bind(client);
+    client.call = (name, args, id, signal) =>
+      name === 'web_search'
+        ? Promise.resolve({
+            ok: false,
+            error: {
+              code: 'PROVIDER_UNAVAILABLE',
+              message: 'No search provider.',
+              retryable: false,
+              retryAfterMs: null,
+            },
+          })
+        : original(name, args, id, signal);
+    const provider = earthruntime([
+      turn(toolCall('web_search', { query: 'Nordic climate software seed' })),
+      turn(toolCall('web_search', { query: 'try again anyway' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [] })),
+    ]);
+    const rec = recorder();
+    await runToolLoop({
+      role: discoveryRole,
+      input,
+      router: new LlmRouter({ providers: [provider] }),
+      tools: client,
+      recorder: rec,
+      checkBudget: () => Promise.resolve([]),
+      signal: new AbortController().signal,
+    });
+    expect(provider.requests[0]?.tools.map((t) => t.name)).toContain('web_search');
+    expect(provider.requests[1]?.tools.map((t) => t.name)).not.toContain('web_search');
+    const refused = provider.requests[2]?.messages.at(-1);
+    expect(refused?.role === 'tool' && refused.results[0]?.content).toMatch(/unavailable in this task/);
   });
 
   it('answers unparseable tool arguments with an error the model can fix', async () => {

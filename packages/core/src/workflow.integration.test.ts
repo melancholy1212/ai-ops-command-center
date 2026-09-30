@@ -447,6 +447,26 @@ describe('run lifecycle', () => {
     await expectConsistentTimeline(runId);
   });
 
+  it('makes the pages a user names fetchable in the run, with a user_provided origin', async () => {
+    const runId = await createRun(h.db, user(owner), owner.workspaceId, {
+      projectId: owner.projectId,
+      objective: OBJECTIVE,
+      seedUrls: [
+        'https://News.Example/funding?utm_source=mail#top',
+        'https://news.example/funding',
+        'https://other.example/a',
+      ],
+    });
+    const { rows } = await h.admin.query<{ normalized_url: string; origin: { kind: string; providedBy: string } }>(
+      'select normalized_url, origin from public.discovered_urls where run_id = $1 order by normalized_url',
+      [runId],
+    );
+    expect(rows).toEqual([
+      { normalized_url: 'https://news.example/funding', origin: { kind: 'user_provided', providedBy: owner.userId } },
+      { normalized_url: 'https://other.example/a', origin: { kind: 'user_provided', providedBy: owner.userId } },
+    ]);
+  });
+
   it('runs the whole prospect workflow with both human gates to completion', async () => {
     const companies = twoCompanies();
     const handlers = prospectHandlers(companies);

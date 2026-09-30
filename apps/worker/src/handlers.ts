@@ -40,8 +40,26 @@ async function readRun(db: Database, claim: ClaimedTask) {
   );
 }
 
-/** Exhausted budget dimensions right now (nothing left for another call), checked before every model call. */
-function budgetChecker(db: Database, claim: ClaimedTask, now: () => Date) {
+/** URLs the user named for the run (user_provided origins), in the order they were given. */
+async function seedUrls(db: Database, claim: ClaimedTask): Promise<string[]> {
+  const rows = await withWorkspace(db, claim.workspaceId, (tx) =>
+    tx
+      .selectFrom('discovered_urls')
+      .select('normalized_url')
+      .where('run_id', '=', claim.runId)
+      .where('origin_kind', '=', 'user_provided')
+      .orderBy('discovered_at')
+      .limit(20)
+      .execute(),
+  );
+  return rows.map((r) => r.normalized_url);
+}
+
+/**
+ * Exhausted budget dimensions right now (nothing left for another call), checked before every model call.
+ * Elapsed time is real time, never the (possibly frozen) clock the agent sees.
+ */
+function budgetChecker(db: Database, claim: ClaimedTask) {
   return async () => {
     const run = await readRun(db, claim);
     const { exhausted } = evaluateBudget(
@@ -56,7 +74,7 @@ function budgetChecker(db: Database, claim: ClaimedTask, now: () => Date) {
         startedAt: run.started_at,
       },
       { costUsdMicros: 0, llmTokens: 0, toolCalls: 0 },
-      now(),
+      new Date(),
     );
     return exhausted;
   };
@@ -71,7 +89,6 @@ async function runAgent<I, O>(
   input: I,
   signal: AbortSignal,
 ) {
-  const now = deps.now ?? (() => new Date());
   const recorder = await ExecutionRecorder.start(db, claim, {
     agent: role.agent,
     agentVersion: role.version,
@@ -98,9 +115,8 @@ async function runAgent<I, O>(
       router: deps.router,
       tools,
       recorder,
-      checkBudget: budgetChecker(db, claim, now),
+      checkBudget: budgetChecker(db, claim),
       signal,
-      now: () => now().getTime(),
     });
     return { output, recorder };
   } catch (error) {
@@ -124,7 +140,12 @@ export function createHandlers(deps: AgentDependencies): HandlerRegistry {
         db,
         claim,
         discoveryRole,
-        { objective: run.objective, criteria: brief.data.criteria, today: today() },
+        {
+          objective: run.objective,
+          criteria: brief.data.criteria,
+          today: today(),
+          seedUrls: await seedUrls(db, claim),
+        },
         signal,
       );
       const companies = new Set(

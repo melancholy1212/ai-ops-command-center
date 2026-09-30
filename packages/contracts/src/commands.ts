@@ -3,13 +3,15 @@
  * check the caller's workspace role, then run the transition in one database transaction.
  */
 import { z } from 'zod';
-import { ApprovalId, ProjectId, RunId, Sha256Hex, type WorkspaceRole } from './common';
+import { ApprovalId, HttpUrl, ProjectId, RunId, Sha256Hex, type WorkspaceRole } from './common';
 import { Budget } from './run';
 
 export const CreateRunCommand = z.strictObject({
   projectId: ProjectId,
   objective: z.string().trim().min(10).max(4000),
   budget: Budget.optional(),
+  /** Pages the user points the research at. They become fetchable in the run with a user_provided origin. */
+  seedUrls: z.array(HttpUrl).max(20).optional(),
 });
 export type CreateRunCommand = z.infer<typeof CreateRunCommand>;
 

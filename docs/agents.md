@@ -38,6 +38,12 @@ other agents.
 7. Validate the result with Zod; on failure, up to 2 repair turns carrying the validation errors.
 8. Return the output to the task handler, which grounds and persists it in the completion transaction.
 
+Implemented rules (Phase 3): the last turn is reserved for the result (forced `submit_result`, or one
+schema-constrained answer), so reaching the turn limit never throws away what was found; a tool that reports it
+can't work in this execution (non-retryable `PROVIDER_UNAVAILABLE`, e.g. no search key) stops being offered; a result
+may cite only sources the model read in the same execution, checked before it is accepted; the run budget is checked
+before every model call, and running out mid-attempt pauses the run for an extension instead of failing the task.
+
 Every turn is persisted as it happens (`agent_messages`, `llm_calls`, `tool_calls`). Conversations are append-only:
 history is never rewritten mid-loop (current Claude models reject edited history on newer API accounts). Context size
 is controlled by small tool results (page chunks, with `get_source` to read further) and bounded turns. Tool results

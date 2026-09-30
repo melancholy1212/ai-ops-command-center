@@ -25,7 +25,7 @@ never against a live page, so a verdict stays reproducible after the page change
 | `page_link` | the snapshot it was found on, anchor text | the team page linked from a company homepage |
 | `provider_record` | tool call, provider, field | the official website on a Wikidata record |
 
-A model can never introduce a URL. It can only choose among URLs that already have an origin in the current scope.
+A model can never introduce a URL. It can only choose among URLs that already have an origin in the current scope. `user_provided` origins come from the `seedUrls` of `createRun`: pages the user points the research at.
 
 ## Fetch authorisation
 

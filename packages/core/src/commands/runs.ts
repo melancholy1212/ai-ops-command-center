@@ -1,5 +1,6 @@
 import {
   Budget,
+  normalizeUrl,
   CancelRunCommand,
   CreateRunCommand,
   PauseRunCommand,
@@ -10,6 +11,7 @@ import {
 } from '@aoc/contracts';
 import { toJson, withWorkspace, type Database } from '@aoc/db';
 import { DEFAULT_RUN_BUDGET } from '../budget';
+import { sha256Hex } from '../canonical-json';
 import { cancelRunInTx } from '../engine/cancel';
 import { appendEvent } from '../engine/events';
 import { createTasks, settleRun } from '../engine/graph';
@@ -43,6 +45,24 @@ export async function createRun(
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    // Seed pages the user named become fetchable in this run (docs/provenance.md#url-origins).
+    for (const url of command.seedUrls ?? []) {
+      const normalized = normalizeUrl(url);
+      if (!normalized) continue;
+      await tx
+        .insertInto('discovered_urls')
+        .values({
+          workspace_id: workspaceId,
+          run_id: run.id,
+          url,
+          normalized_url: normalized,
+          normalized_url_hash: sha256Hex(normalized),
+          origin_kind: 'user_provided',
+          origin: toJson({ kind: 'user_provided', providedBy: user.userId }),
+        })
+        .onConflict((oc) => oc.columns(['run_id', 'normalized_url_hash']).doNothing())
+        .execute();
+    }
     const actor = actorOf(user);
     await appendEvent(tx, run, actor, { type: 'run.created', data: { objective: command.objective } });
     await audit(tx, workspaceId, actor, 'run.created', { type: 'run', id: run.id });
