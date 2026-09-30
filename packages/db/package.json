@@ -1,0 +1,26 @@
+{
+  "name": "@aoc/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run integration",
+    "generate:types": "kysely-codegen --dialect postgres --url postgresql://postgres:postgres@127.0.0.1:55322/postgres --include-pattern 'public.*' --out-file src/generated.ts"
+  },
+  "dependencies": {
+    "@aoc/contracts": "workspace:*",
+    "kysely": "0.29.6",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@aoc/config": "workspace:*",
+    "@types/pg": "8.23.1",
+    "kysely-codegen": "0.20.0",
+    "vitest": "5.0.2"
+  }
+}
