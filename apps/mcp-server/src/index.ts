@@ -1,40 +1,37 @@
 /**
- * HTTP entry point. Phase 1 serves /healthz only. The Streamable HTTP MCP endpoint (/mcp) is added in
- * Phase 3 with authentication; an unauthenticated MCP endpoint is never exposed, even without tools.
+ * MCP server process: /healthz plus the authenticated Streamable HTTP endpoint POST /mcp. Provider keys live
+ * here and nowhere else; model credentials never do.
  */
 import { createServer } from 'node:http';
 import { createLogger } from '@aoc/config/logger';
+import { createDb } from '@aoc/db';
+import { createTokenVerifier } from './auth';
 import { loadEnv } from './env';
-import { SERVER_INFO } from './server';
+import { createHttpHandler } from './http';
+import { createServices } from './services';
 
 const env = loadEnv();
 const log = createLogger('mcp-server', env.LOG_LEVEL);
-const startedAt = Date.now();
+const db = createDb(env.DATABASE_URL, { applicationName: 'mcp-server', maxConnections: 10 });
+const services = createServices({ db, log, tavilyApiKey: env.TAVILY_API_KEY, denylist: env.FETCH_DENYLIST });
+if (!services.search) log.warn('TAVILY_API_KEY is not set: web_search will report PROVIDER_UNAVAILABLE');
+const handler = createHttpHandler({ verify: await createTokenVerifier(env.CAPABILITY_PUBLIC_JWK), services, log });
 
 const server = createServer((req, res) => {
-  if (req.method === 'GET' && req.url === '/healthz') {
-    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-    res.end(
-      JSON.stringify({
-        status: 'ok',
-        service: 'mcp-server',
-        server: SERVER_INFO,
-        uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
-        tools: 0,
-      }),
-    );
-    return;
-  }
-  res.writeHead(404, { 'content-type': 'application/json' });
-  res.end(JSON.stringify({ error: 'not_found' }));
+  handler(req, res).catch((error: unknown) => {
+    log.error({ err: error }, 'unhandled request error');
+    if (!res.headersSent) res.writeHead(500).end();
+  });
 });
-server.listen(env.HEALTH_PORT, () => {
-  log.info({ healthPort: env.HEALTH_PORT }, 'mcp-server started (no tools until Phase 3)');
+server.listen(env.PORT, () => {
+  log.info({ port: env.PORT }, 'mcp-server listening');
 });
 
 function shutdown(signal: string): void {
   log.info({ signal }, 'shutting down');
-  server.close(() => process.exit(0));
+  server.close(() => {
+    void db.destroy().finally(() => process.exit(0));
+  });
   setTimeout(() => process.exit(1), 10_000).unref();
 }
 process.on('SIGTERM', () => {

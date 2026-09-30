@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 // Local development setup. Requires the local Supabase stack (`pnpm db:start`).
 //   1. gives the aoc_service login role a fresh random password (local database only)
-//   2. writes git-ignored .env.local files for web, worker and mcp-server, including this machine's
+//   2. generates a fresh Ed25519 keypair for capability tokens: the private key for the worker (which mints
+//      tokens), the public key for the MCP server (which can only verify them)
+//   3. writes git-ignored .env.local files for web, worker and mcp-server, including this machine's
 //      LAN addresses as allowed dev origins (so the app also works when opened from another computer)
-// Secrets are never printed. Rerunning rotates the local password and rewrites the files.
+// Provider keys you added yourself (model, search) are kept. Secrets are never printed. Rerunning rotates the
+// local password and the keypair and rewrites the files.
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { generateKeyPairSync, randomBytes } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,6 +60,24 @@ const lanAddresses = Object.values(networkInterfaces())
   .filter((net) => net && net.family === 'IPv4' && !net.internal)
   .map((net) => net.address);
 
+const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+const publicJwk = JSON.stringify(publicKey.export({ format: 'jwk' }));
+const privateJwk = JSON.stringify(privateKey.export({ format: 'jwk' }));
+
+/** Provider credentials are yours to add (docs/deployment.md); rewriting a file never drops them. */
+const KEPT = ['ANTHROPIC_API_KEY', 'EARTHRUNTIME_API_KEY', 'EARTHRUNTIME_BASE_URL', 'TAVILY_API_KEY'];
+const kept = (file) => {
+  const path = join(root, file);
+  if (!existsSync(path)) return {};
+  return Object.fromEntries(
+    readFileSync(path, 'utf8')
+      .split('\n')
+      .map((line) => line.match(/^([A-Z_]+)=(.*)$/))
+      .filter((m) => m && KEPT.includes(m[1]))
+      .map((m) => [m[1], m[2]]),
+  );
+};
+
 const header = '# Written by `pnpm setup:local`. Local development only; never commit.\n';
 const files = {
   'apps/web/.env.local': {
@@ -64,8 +85,21 @@ const files = {
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: status.PUBLISHABLE_KEY,
     ALLOWED_DEV_ORIGINS: lanAddresses.join(','),
   },
-  'apps/worker/.env.local': { DATABASE_URL: db.toString(), LOG_LEVEL: 'info', HEALTH_PORT: '8081' },
-  'apps/mcp-server/.env.local': { LOG_LEVEL: 'info', HEALTH_PORT: '8082' },
+  'apps/worker/.env.local': {
+    DATABASE_URL: db.toString(),
+    LOG_LEVEL: 'info',
+    HEALTH_PORT: '8081',
+    MCP_URL: 'http://127.0.0.1:8082/mcp',
+    CAPABILITY_PRIVATE_JWK: privateJwk,
+    ...kept('apps/worker/.env.local'),
+  },
+  'apps/mcp-server/.env.local': {
+    DATABASE_URL: db.toString(),
+    LOG_LEVEL: 'info',
+    PORT: '8082',
+    CAPABILITY_PUBLIC_JWK: publicJwk,
+    ...kept('apps/mcp-server/.env.local'),
+  },
 };
 for (const [file, vars] of Object.entries(files)) {
   const body = Object.entries(vars)
@@ -74,6 +108,6 @@ for (const [file, vars] of Object.entries(files)) {
   writeFileSync(join(root, file), `${header}${body}\n`, { mode: 0o600 });
   console.log(`wrote ${file} (${Object.keys(vars).join(', ')})`);
 }
-console.log('aoc_service password rotated on the local database.');
+console.log('aoc_service password and the capability-token keypair rotated.');
 if (lanAddresses.length > 0)
   console.log(`web dev server also reachable at: ${lanAddresses.map((a) => `http://${a}:3000`).join(', ')}`);

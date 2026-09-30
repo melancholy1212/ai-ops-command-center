@@ -47,8 +47,9 @@ Every call, in this order:
 ## Errors
 
 - **Protocol errors** (JSON-RPC): unknown tool, malformed request.
-- **Tool errors:** a result with `isError: true` and a `ToolError` in `structuredContent`: `code`, `message`,
-  `retryable`, `retryAfterMs`, `toolCallId`. Messages are safe for the model to read: no stack traces, secrets,
+- **Tool errors:** a result with `isError: true` whose text content is a JSON `ToolError`: `code`, `message`,
+  `retryable`, `retryAfterMs`, `toolCallId`. (Not in `structuredContent`: MCP clients validate structured content
+  against the tool's output schema even on errors, so it can't carry a different shape.) Messages are safe for the model to read: no stack traces, secrets,
   internal hostnames or provider response bodies. Details go to logs.
 
 | Code | Retryable | Meaning |
@@ -63,6 +64,18 @@ Every call, in this order:
 | `CONTENT_TOO_LARGE` / `UNSUPPORTED_CONTENT_TYPE` | no | Fetch limits |
 | `NOT_FOUND` / `UNSUPPORTED_JURISDICTION` | no | Nothing there / no provider for that country |
 | `INTERNAL` | yes (once) | Server bug |
+
+## Implementation status
+
+Phase 3 implements the HTTP endpoint with capability tokens and three tools: `web_search` (Tavily),
+`fetch_page` and `get_source`. `search_knowledge` arrives with the knowledge tables in Phase 4, and `lookup_company`
+and `find_company_people` with the registry providers in Phase 5; until then the server doesn't list them, even
+if a token grants them. Workspace API keys for external clients come later, so the stdio entry point currently
+advertises no tools. Each tool call's cost (Tavily: 1 credit, charged at the $0.008 pay-as-you-go rate) and the call
+itself are added to the run's spend in the same transaction as its audit row.
+
+`fetch_page` serves a snapshot this run already saved from the same discovered URL (within 24 h) instead of
+fetching again, so paging through a long page with `offset` doesn't refetch it or create a second snapshot.
 
 ## Tools
 

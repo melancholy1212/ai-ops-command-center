@@ -1,4 +1,6 @@
 {
   "extends": "@aoc/config/tsconfig/base.json",
+  // DOM types for the HTML extractor, which walks linkedom's standards-compliant DOM.
+  "compilerOptions": { "lib": ["ES2023", "DOM", "DOM.Iterable"] },
   "include": ["src", "tsup.config.ts"]
 }

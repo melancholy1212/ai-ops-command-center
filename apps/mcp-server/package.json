@@ -9,15 +9,28 @@
     "start": "node dist/index.js",
     "start:stdio": "node dist/stdio.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run integration"
   },
   "dependencies": {
     "@aoc/config": "workspace:*",
+    "@aoc/contracts": "workspace:*",
+    "@aoc/core": "workspace:*",
+    "@aoc/db": "workspace:*",
     "@modelcontextprotocol/sdk": "1.31.0",
+    "@mozilla/readability": "0.6.0",
+    "ipaddr.js": "2.5.0",
+    "jose": "6.2.12",
+    "kysely": "0.29.6",
+    "linkedom": "0.18.13",
     "pino": "10.3.1",
+    "robots-parser": "3.0.1",
+    "tldts": "7.4.16",
+    "undici": "8.11.2",
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "pg": "8.23.0",
     "tsup": "8.5.1",
     "tsx": "4.23.15",
     "vitest": "5.0.2"
