@@ -1,0 +1,24 @@
+{
+  "name": "@aoc/llm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --exclude '**/*.live.test.ts'",
+    "test:live": "vitest run live"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.129.0",
+    "@aoc/contracts": "workspace:*",
+    "openai": "7.23.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@aoc/config": "workspace:*",
+    "vitest": "5.0.2"
+  }
+}

@@ -69,6 +69,11 @@ Initial bindings, to be tuned by evals:
 Each call records the binding that served it and the routing config version. A model without a price entry
 can't be routed to, so budgets can't be bypassed by an unpriced model.
 
+Once a conversation contains an assistant turn, later calls in it stay on that provider kind: another provider
+can't replay the turn exactly (thinking blocks and their signatures are provider-specific), so a fallback mid-loop
+only goes to another binding of the same provider. Each binding has a circuit breaker (3 consecutive availability
+failures open it for 30 s).
+
 ## Model capabilities (config)
 
 | Capability | Why it matters |
@@ -103,6 +108,12 @@ Without an API key the adapter is tested against recorded responses only.
 - Qwen 3.8 overthinks with thinking on;
 - no prompt caching;
 - gpt-oss reports `reasoning_tokens: 0` even when reasoning, so it is recorded as null.
+
+**Implemented in `packages/llm`** (Phase 3): both adapters call the official SDKs with SDK retries turned off, and
+share one in-call retry policy, so `retryCount` is exact and both providers behave the same. Calls are
+non-streaming (usage comes with the response). A response without token usage is refused (`invalid_request`)
+rather than recorded as free. `test:live` checks the OpenAI-compatible adapter against Earthruntime; the Anthropic
+adapter is tested against recorded HTTP responses until an `ANTHROPIC_API_KEY` exists.
 
 ## Structured output strategy
 

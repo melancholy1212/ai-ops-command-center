@@ -22,6 +22,9 @@ and gated in CI.
 Recording wraps the MCP client and the LLM provider. Each request is normalised and hashed, and the response is
 stored under that hash with its origin (date, provider, model). In replay, a request with no recording is a hard
 failure (`FIXTURE_MISS`): a changed prompt or tool call must be re-recorded deliberately, not silently served stale data.
+Ids minted during a run (sources, discovered URLs, tool calls) are replaced by placeholders numbered by first
+appearance before hashing, and mapped back to the current run's ids when a recorded response is served, so a replay
+matches even though every run mints fresh ids.
 
 ## Case format
 
