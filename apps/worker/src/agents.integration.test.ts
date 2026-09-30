@@ -155,17 +155,17 @@ function start(turns: ScriptedTurn[]) {
   scheduler.start();
 }
 
-async function waitForTask(runId: RunId, statuses: string[]) {
+async function waitForTask(runId: RunId, statuses: string[], type = 'discover_companies') {
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     const { rows } = await h.admin.query<{ status: string }>(
-      `select status from public.tasks where run_id = $1 and type = 'discover_companies'`,
-      [runId],
+      `select status from public.tasks where run_id = $1 and type = $2`,
+      [runId, type],
     );
     if (rows[0] && statuses.includes(rows[0].status)) return rows[0].status;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error('timed out waiting for the discovery task');
+  throw new Error(`timed out waiting for the ${type} task`);
 }
 
 async function execution(runId: RunId) {
@@ -192,6 +192,13 @@ describe('discovery agent', () => {
       call('web_search', { query: 'Nordic climate software seed round' }, 1),
       call('fetch_page', { url: 'https://news.example/a' }, 2),
       call('submit_result', { claims: [claim] }, 3),
+      // The verifier's structured answer for the one grounded quote.
+      {
+        text: JSON.stringify({
+          verdicts: [{ index: 0, verdict: 'supports', reason: 'The quote places it in Stockholm.' }],
+        }),
+        usage: usage(2_000),
+      },
     ]);
     expect(await waitForTask(runId, ['succeeded', 'failed'])).toBe('succeeded');
 
@@ -287,8 +294,29 @@ describe('discovery agent', () => {
     );
     expect(created).toEqual([
       { type: 'compile_report', status: 'blocked' },
-      { type: 'verify_entity', status: 'ready' },
+      { type: 'verify_entity', status: expect.stringMatching(/ready|running|succeeded/) as unknown as string },
     ]);
+
+    // Verification runs next: the judge's verdict, policy v1 and confidence, then coverage gaps.
+    expect(await waitForTask(runId, ['succeeded', 'failed'], 'verify_entity')).toBe('succeeded');
+    const { rows: verified } = await h.admin.query<{ status: string; confidence: string; verdict: string }>(
+      `select c.status, c.confidence, e.judge_verdict as verdict from public.claims c join public.evidence e on e.claim_id = c.id
+       where c.run_id = $1`,
+      [runId],
+    );
+    // One tier-B article, not the company's own site: probable, medium confidence.
+    expect(verified).toEqual([{ status: 'probable', confidence: 'medium', verdict: 'supports' }]);
+    const { rows: gaps } = await h.admin.query<{ attribute: string }>(
+      'select attribute from public.research_gaps where run_id = $1 order by attribute',
+      [runId],
+    );
+    expect(gaps.map((g) => g.attribute)).toEqual(['company.funding_round', 'company.sector', 'company.website']);
+    const { rows: verifierRuns } = await h.admin.query<{ agent: string; status: string; llm_calls: number }>(
+      `select agent, status, llm_calls from public.agent_executions where run_id = $1 and agent = 'verifier'`,
+      [runId],
+    );
+    expect(verifierRuns).toEqual([{ agent: 'verifier', status: 'succeeded', llm_calls: 1 }]);
+    expect(await waitForTask(runId, ['ready'], 'compile_report')).toBe('ready');
   });
 
   it('fails the execution with the task when the model refuses', async () => {

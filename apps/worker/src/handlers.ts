@@ -2,10 +2,15 @@
  * Task handlers by type. The scheduler claims only the types listed here. Phase 3 registers discovery (the
  * Research agent); the planner, verification and the other agents follow in Phases 4 and 5.
  */
+import { createHash } from 'node:crypto';
 import { Budget, ResearchBrief, type ClaimId, type SourceId } from '@aoc/contracts';
 import {
+  applyVerification,
   BudgetExhaustedError,
   discoveryExpansion,
+  judgeItems,
+  loadCompanyForVerification,
+  type JudgeVerdictRecord,
   evaluateBudget,
   persistDiscovery,
   TaskFailure,
@@ -20,6 +25,8 @@ import { ExecutionRecorder } from './agents/recorder';
 import type { TokenMinter } from './agents/tokens';
 import type { ToolClient } from './agents/tool-client';
 import { discoveryRole, type DiscoveryOutput } from './roles/research';
+import { VERIFIER_BATCH_SIZE, verifierRole } from './roles/verifier';
+import { runStructuredCall, type StructuredRole } from './agents/structured';
 import type { HandlerRegistry } from './scheduler';
 
 export interface AgentDependencies {
@@ -47,6 +54,11 @@ async function readRun(db: Database, claim: ClaimedTask) {
       .where('id', '=', claim.runId)
       .executeTakeFirstOrThrow(),
   );
+}
+
+/** Prompt identity for a structured role: its version and system prompt. */
+function structuredPromptHash(role: StructuredRole<unknown, unknown>): string {
+  return createHash('sha256').update(`${role.version}\n${role.system}`).digest('hex');
 }
 
 /** URLs the user named for the run (user_provided origins), in the order they were given. */
@@ -189,6 +201,83 @@ export function createHandlers(deps: AgentDependencies): HandlerRegistry {
           };
         },
         expand: () => discoveryExpansion(discovered?.companies ?? [], criteria.maxCompanies),
+      };
+    },
+
+    async verify_entity({ claim, input, db, signal }) {
+      if (input.type !== 'verify_entity')
+        throw new TaskFailure('INTERNAL_ERROR', 'verify_entity received the wrong input.');
+      const run = await readRun(db, claim);
+      const brief = ResearchBrief.safeParse(run.brief);
+      if (!brief.success) throw new TaskFailure('DEPENDENCY_FAILED', 'Verification needs the research brief.');
+      const company = await withWorkspace(db, claim.workspaceId, (tx) =>
+        loadCompanyForVerification(tx, claim.runId, input.companyId),
+      );
+      const items = judgeItems(company);
+      const verdicts: JudgeVerdictRecord[] = [];
+      let recorder: ExecutionRecorder | null = null;
+      if (items.length > 0) {
+        recorder = await ExecutionRecorder.start(db, claim, {
+          agent: verifierRole.agent,
+          agentVersion: verifierRole.version,
+          promptHash: structuredPromptHash(verifierRole),
+          input: { companyId: input.companyId, quotes: items.length },
+          limits: {
+            maxTurns: 3 * Math.ceil(items.length / VERIFIER_BATCH_SIZE),
+            maxToolCalls: 0,
+            maxOutputTokensPerCall: verifierRole.maxOutputTokens,
+            timeoutMs: 600_000,
+          },
+        });
+        try {
+          for (let start = 0; start < items.length; start += VERIFIER_BATCH_SIZE) {
+            const batch = items.slice(start, start + VERIFIER_BATCH_SIZE);
+            const { output, callId } = await runStructuredCall({
+              role: verifierRole,
+              input: {
+                items: batch.map((item, index) => ({
+                  index,
+                  claim: item.statement,
+                  quote: item.quote,
+                  context: item.context,
+                })),
+              },
+              router: deps.router,
+              recorder,
+              checkBudget: budgetChecker(db, claim),
+              signal,
+            });
+            for (const v of output.verdicts) {
+              const item = batch[v.index];
+              if (item)
+                verdicts.push({ evidenceId: item.evidenceId, verdict: v.verdict, reason: v.reason, llmCallId: callId });
+            }
+          }
+        } catch (error) {
+          if (!(error instanceof BudgetExhaustedError) && !signal.aborted) await recorder.fail(toFailure(error));
+          throw error;
+        }
+      }
+      const criteria = brief.data.criteria;
+      const done = recorder;
+      return {
+        kind: 'succeeded',
+        summary: { claims: company.claims.length, quotesJudged: verdicts.length },
+        write: async (tx) => {
+          if (done) await done.succeedInTx(tx, { verdicts: verdicts.length });
+          await applyVerification(
+            tx,
+            {
+              run: { id: claim.runId, workspace_id: claim.workspaceId },
+              taskId: claim.taskId,
+              criteria,
+              now: (deps.now ?? (() => new Date()))(),
+            },
+            company,
+            verdicts,
+          );
+          return { claimIds: company.claims.map((c) => c.id) as ClaimId[] };
+        },
       };
     },
   };

@@ -4,17 +4,14 @@
  * gets a result out of a model that stops without one, and validates it (with up to 2 repair turns).
  * Every turn is persisted as it happens; history is append-only.
  */
-import { createHash, randomUUID } from 'node:crypto';
-import type { AgentType, ExecutionLimits, LlmCallId, RouteClass, ToolName } from '@aoc/contracts';
-import { BudgetExhaustedError, makeFailure, TaskFailure, type BudgetDimension } from '@aoc/core';
+import { createHash } from 'node:crypto';
+import type { AgentType, ExecutionLimits, RouteClass, ToolName } from '@aoc/contracts';
+import { TaskFailure, type BudgetDimension, type ClaimedTask } from '@aoc/core';
 import {
   capabilitiesOf,
-  LlmCallError,
-  requestHash,
   toJsonSchema,
   type ConversationMessage,
   type LlmRequest,
-  type LlmResponse,
   type LlmRouter,
   type ModelBinding,
   type ToolChoice,
@@ -22,7 +19,7 @@ import {
   type ToolSpec,
 } from '@aoc/llm';
 import type { z } from 'zod';
-import type { ClaimedTask } from '@aoc/core';
+import { callModel, type ModelCaller } from './model';
 import type { LlmCallRecord } from './recorder';
 import type { ToolClient, ToolOutcome } from './tool-client';
 
@@ -119,12 +116,6 @@ function describe(issues: readonly { path: PropertyKey[]; message: string }[]): 
   return issues.slice(0, 20).map((i) => `${i.path.map(String).join('.') || 'result'}: ${i.message}`);
 }
 
-function toTaskFailure(error: LlmCallError): TaskFailure {
-  if (error.kind === 'rate_limited') return new TaskFailure('PROVIDER_RATE_LIMITED', error.message);
-  if (error.kind === 'unavailable') return new TaskFailure('PROVIDER_UNAVAILABLE', error.message);
-  return new TaskFailure('INTERNAL_ERROR', `Model call refused: ${error.message}`, { kind: error.kind });
-}
-
 export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise<O> {
   const { role, router, tools, recorder, signal } = options;
   const now = options.now ?? Date.now;
@@ -151,76 +142,20 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
   await recorder.message('system', { text: role.system, tools: modelTools().map((t) => t.name) });
   await recorder.message('user', { text: messages[0]?.role === 'user' ? messages[0].content : '' });
 
-  const call = async (
-    toolChoice: ToolChoice,
-    responseFormat?: LlmRequest['responseFormat'],
-  ): Promise<{ response: LlmResponse; binding: ModelBinding }> => {
-    if (signal.aborted) throw signal.reason;
-    const exhausted = await options.checkBudget();
-    if (exhausted.length > 0) throw new BudgetExhaustedError(exhausted);
-    const callId = randomUUID() as LlmCallId;
-    const request: Omit<LlmRequest, 'binding'> = {
-      system: role.system,
-      messages: [...messages],
-      tools: responseFormat ? [] : modelTools(),
-      toolChoice: responseFormat ? { type: 'none' } : toolChoice,
-      ...(responseFormat ? { responseFormat } : {}),
-      maxOutputTokens: role.limits.maxOutputTokensPerCall,
-      telemetry: {
-        runId: recorder.claim.runId,
-        taskId: recorder.claim.taskId,
-        executionId: recorder.executionId as LlmRequest['telemetry']['executionId'],
-        callId,
-        route: role.route,
-        promptVersion: role.version,
-      },
-    };
-    const startedAt = new Date();
-    const clock = performance.now();
-    try {
-      const { response, binding, routingConfigVersion } = await router.generate(role.route, request, signal);
-      await recorder.llmCall(
-        {
-          callId,
-          binding,
-          route: role.route,
-          routingConfigVersion,
-          promptVersion: role.version,
-          requestHash: requestHash({ ...request, binding }),
-          startedAt,
-          response,
-          failure: null,
-          latencyMs: response.latencyMs,
-          retryCount: response.retryCount,
-        },
-        true,
-      );
-      return { response, binding };
-    } catch (error) {
-      if (!(error instanceof LlmCallError) || error.kind === 'aborted') throw error;
-      const binding = router.candidates(role.route)[0];
-      const failure = toTaskFailure(error);
-      if (binding) {
-        await recorder.llmCall(
-          {
-            callId,
-            binding,
-            route: role.route,
-            routingConfigVersion: router.routingConfigVersion,
-            promptVersion: role.version,
-            requestHash: requestHash({ ...request, binding }),
-            startedAt,
-            response: null,
-            failure: makeFailure(failure.code, failure.message, false),
-            latencyMs: Math.round(performance.now() - clock),
-            retryCount: error.retryCount,
-          },
-          false,
-        );
-      }
-      throw failure;
-    }
+  const caller: ModelCaller = {
+    route: role.route,
+    promptVersion: role.version,
+    system: role.system,
+    maxOutputTokens: role.limits.maxOutputTokensPerCall,
+    router,
+    recorder,
+    checkBudget: options.checkBudget,
+    signal,
   };
+  const call = (toolChoice: ToolChoice, responseFormat?: LlmRequest['responseFormat']) =>
+    responseFormat
+      ? callModel(caller, messages, [], { type: 'none' }, responseFormat)
+      : callModel(caller, messages, modelTools(), toolChoice);
 
   const validate = (candidate: unknown): { ok: true; value: O } | { ok: false; problems: string[] } => {
     const parsed = role.output.safeParse(candidate);

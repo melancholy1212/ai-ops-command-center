@@ -31,4 +31,13 @@ export {
   type DiscoveryResult,
   type DiscoveryContext,
 } from './workflow/discovery';
+export {
+  applyVerification,
+  judgeItems,
+  loadCompanyForVerification,
+  type CompanyForVerification,
+  type JudgeItem,
+  type JudgeVerdictRecord,
+  type VerificationSummary,
+} from './workflow/verify';
 export type { UserActor } from './commands/common';
