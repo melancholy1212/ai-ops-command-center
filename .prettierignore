@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+node_modules/
+dist/
+.next/
+.turbo/
+coverage/
+supabase/.temp/
+supabase/.branches/
+**/generated.ts
+*.md

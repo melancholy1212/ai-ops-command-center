@@ -1,0 +1,21 @@
+# dependencies and build output
+node_modules/
+dist/
+.next/
+.turbo/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# environment: only the committed examples, never real values
+.env
+.env.*
+!.env.example
+
+# supabase local state
+supabase/.branches/
+supabase/.temp/
+
+# os / editor
+.DS_Store
+*.log
