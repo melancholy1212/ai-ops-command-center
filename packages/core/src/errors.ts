@@ -1,4 +1,5 @@
 import { FAILURE_CLASS, type FailureClass, type FailureCode } from '@aoc/contracts';
+import type { BudgetDimension } from './budget';
 
 export type DomainErrorCode =
   'NOT_FOUND' | 'FORBIDDEN' | 'INVALID_STATE' | 'LEASE_LOST' | 'STALE_SNAPSHOT' | 'VALIDATION';
@@ -34,5 +35,17 @@ export class TaskFailure extends Error {
     super(message);
     this.name = 'TaskFailure';
     this.failureClass = FAILURE_CLASS[code];
+  }
+}
+
+/**
+ * Thrown by a handler whose running attempt found the run budget exhausted. Not a failure: the scheduler
+ * hands the task back (attempt not counted) and the run pauses for a budget extension, as when a task
+ * would not fit before it started.
+ */
+export class BudgetExhaustedError extends Error {
+  constructor(readonly exhausted: readonly BudgetDimension[]) {
+    super(`Budget exhausted: ${exhausted.join(', ')}`);
+    this.name = 'BudgetExhaustedError';
   }
 }

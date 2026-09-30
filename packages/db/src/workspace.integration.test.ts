@@ -6,7 +6,7 @@ import { sql } from 'kysely';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, ping, type Database } from './client';
-import { withWorkspace } from './workspace';
+import { toJson, withWorkspace } from './workspace';
 
 // Local-only admin credentials (Supabase CLI defaults); CI runs the same local stack.
 const ADMIN_URL = process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55322/postgres';
@@ -130,5 +130,21 @@ describe('withWorkspace, connected as a login role identical to aoc_service', ()
       tx.selectFrom('projects').select('name').where('name', '=', 'Rolled back').execute(),
     );
     expect(rows).toEqual([]);
+  });
+});
+
+describe('toJson', () => {
+  it('sends arrays, strings, objects and null as valid JSON parameters', async () => {
+    const values: unknown[] = [
+      [{ a: 1 }, 'two', 3],
+      'plain text',
+      { nested: { list: [1, 2] }, skipped: undefined },
+      null,
+      42,
+    ];
+    for (const value of values) {
+      const { rows } = await sql<{ v: unknown }>`select ${toJson(value)}::jsonb as v`.execute(service);
+      expect(rows[0]?.v).toEqual(JSON.parse(JSON.stringify(value ?? null)));
+    }
   });
 });

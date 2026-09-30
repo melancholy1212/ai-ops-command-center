@@ -6,7 +6,11 @@
 import { createLogger } from '@aoc/config/logger';
 import { createDb, ping } from '@aoc/db';
 import { loadEnv } from './env';
-import { handlers } from './handlers';
+import { createAnthropicProvider, createOpenAiCompatibleProvider, LlmRouter, type LlmProvider } from '@aoc/llm';
+import { createTokenMinter } from './agents/tokens';
+import { connectMcp } from './agents/tool-client';
+import { createHandlers } from './handlers';
+import type { HandlerRegistry } from './scheduler';
 import { healthReport, startHealthServer, type HealthState } from './health';
 import { createScheduler } from './scheduler';
 
@@ -40,6 +44,36 @@ const server = startHealthServer(env.HEALTH_PORT, () => healthReport(state, Date
 await checkDatabase();
 const timer = setInterval(() => void checkDatabase(), env.HEARTBEAT_INTERVAL_MS);
 
+// Agents need a model provider, the MCP server and the token signing key; without them nothing is claimed
+// but lease recovery still runs.
+const providers: LlmProvider[] = [];
+if (env.ANTHROPIC_API_KEY) providers.push(createAnthropicProvider({ apiKey: env.ANTHROPIC_API_KEY }));
+if (env.EARTHRUNTIME_API_KEY) {
+  providers.push(
+    createOpenAiCompatibleProvider({
+      apiKey: env.EARTHRUNTIME_API_KEY,
+      baseURL: env.EARTHRUNTIME_BASE_URL,
+      account: 'earthruntime',
+    }),
+  );
+}
+const missing = [
+  providers.length === 0 ? 'a model provider key (EARTHRUNTIME_API_KEY or ANTHROPIC_API_KEY)' : null,
+  env.MCP_URL ? null : 'MCP_URL',
+  env.CAPABILITY_PRIVATE_JWK ? null : 'CAPABILITY_PRIVATE_JWK',
+].filter((m): m is string => m !== null);
+let handlers: HandlerRegistry = {};
+if (missing.length === 0 && env.MCP_URL && env.CAPABILITY_PRIVATE_JWK) {
+  const mcpUrl = env.MCP_URL;
+  handlers = createHandlers({
+    router: new LlmRouter({ providers }),
+    mintToken: await createTokenMinter(env.CAPABILITY_PRIVATE_JWK),
+    connectTools: (token) => connectMcp(mcpUrl, token),
+  });
+} else {
+  log.warn({ missing }, 'agent handlers disabled until configured: this worker only recovers expired leases');
+}
+
 const scheduler = createScheduler({
   db,
   workerId: env.WORKER_ID,
@@ -49,9 +83,6 @@ const scheduler = createScheduler({
   leaseSeconds: env.TASK_LEASE_SECONDS,
   heartbeatIntervalMs: env.HEARTBEAT_INTERVAL_MS,
 });
-if (Object.keys(handlers).length === 0) {
-  log.warn('no task handlers are registered yet: this worker only recovers expired leases');
-}
 scheduler.start();
 log.info({ workerId: env.WORKER_ID, healthPort: env.HEALTH_PORT }, 'worker started');
 

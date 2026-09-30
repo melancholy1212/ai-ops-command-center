@@ -34,7 +34,12 @@ export async function withBackend<T>(db: Database, fn: (tx: WorkspaceTransaction
   });
 }
 
-/** Converts a domain value to a JSON column value (drops undefined fields, keeps the shape). */
+/**
+ * Converts a domain value to a JSON column value (drops undefined fields, keeps the shape). Objects go to the
+ * driver as they are; arrays and strings go as JSON text, because the pg driver would otherwise send an array
+ * as a Postgres array literal and a string as plain text, neither of which is valid JSON.
+ */
 export function toJson(value: unknown): Json {
-  return JSON.parse(JSON.stringify(value)) as Json;
+  const plain = JSON.parse(JSON.stringify(value ?? null)) as Json;
+  return Array.isArray(plain) || typeof plain === 'string' ? JSON.stringify(plain) : plain;
 }

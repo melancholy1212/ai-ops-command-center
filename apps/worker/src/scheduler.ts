@@ -12,6 +12,7 @@
 import type { Logger } from '@aoc/config/logger';
 import { TaskInput, type Actor, type TaskType } from '@aoc/contracts';
 import {
+  BudgetExhaustedError,
   cancelTask,
   claimNextTask,
   completeTask,
@@ -21,6 +22,7 @@ import {
   LeaseLostError,
   makeFailure,
   recoverExpiredLeases,
+  releaseForBudget,
   releaseTask,
   startAttempt,
   toFailure,
@@ -233,6 +235,14 @@ export function createScheduler(options: SchedulerOptions): Scheduler {
       if (result.kind === 'outcome') {
         await completeTask(db, claim, result.outcome, actor);
         taskLog.info('task completed');
+        return;
+      }
+      if (result.kind === 'error' && result.error instanceof BudgetExhaustedError) {
+        await releaseForBudget(db, claim, result.error.exhausted, actor);
+        taskLog.warn(
+          { exhausted: result.error.exhausted },
+          'budget exhausted mid-attempt; run paused for an extension',
+        );
         return;
       }
       if (result.kind === 'error') {

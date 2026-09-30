@@ -18,6 +18,14 @@ const WorkerEnv = z
     HEARTBEAT_INTERVAL_MS: z.coerce.number().int().min(1_000).max(300_000).default(15_000),
     TASK_LEASE_SECONDS: z.coerce.number().int().min(10).max(3_600).default(60),
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
+    /** The MCP server's endpoint for agent tool calls. */
+    MCP_URL: z.url({ protocol: /^https?$/ }).optional(),
+    /** Ed25519 private key (JWK) that signs capability tokens. Only the worker holds it. */
+    CAPABILITY_PRIVATE_JWK: z.string().min(20).optional(),
+    /** Model providers: the router uses whichever are configured (docs/llm.md#credentials). */
+    ANTHROPIC_API_KEY: z.string().min(10).optional(),
+    EARTHRUNTIME_API_KEY: z.string().min(10).optional(),
+    EARTHRUNTIME_BASE_URL: z.url({ protocol: /^https$/ }).default('https://api.earthruntime.com/v1'),
   })
   .refine((env) => env.HEARTBEAT_INTERVAL_MS * 2 <= env.TASK_LEASE_SECONDS * 1000, {
     error: 'HEARTBEAT_INTERVAL_MS must be at most half of TASK_LEASE_SECONDS',

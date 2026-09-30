@@ -12,6 +12,7 @@ export {
   failTaskAttempt,
   heartbeat,
   makeFailure,
+  releaseForBudget,
   releaseTask,
   startAttempt,
   toFailure,

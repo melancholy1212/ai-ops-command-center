@@ -11,7 +11,7 @@ import {
 import { toJson, withWorkspace, type Database, type WorkspaceTransaction } from '@aoc/db';
 import { sql } from 'kysely';
 import { retryDelayMs } from '../backoff';
-import { evaluateBudget, TASK_COST_ESTIMATES } from '../budget';
+import { evaluateBudget, TASK_COST_ESTIMATES, type BudgetDimension } from '../budget';
 import { DomainError, TaskFailure } from '../errors';
 import { insertApprovals, requestBudgetExtension } from './approvals';
 import { appendEvent } from './events';
@@ -94,9 +94,10 @@ export async function releaseLeasedTask(
   task: TaskRow,
   actor: Actor,
   reason: string,
+  code: 'WORKER_SHUTDOWN' | 'BUDGET_EXHAUSTED' = 'WORKER_SHUTDOWN',
 ) {
   const attempt = Math.max(0, task.attempt - 1);
-  await abandonOpenExecutions(tx, task.id, makeFailure('WORKER_SHUTDOWN', `Handed back: ${reason}.`, true));
+  await abandonOpenExecutions(tx, task.id, makeFailure(code, `Handed back: ${reason}.`, code === 'WORKER_SHUTDOWN'));
   await setTaskStatus(
     tx,
     run,
@@ -114,6 +115,37 @@ export async function cancelLeasedTask(tx: WorkspaceTransaction, run: RunRow, ta
   await abandonOpenExecutions(tx, task.id, failure);
   await setTaskStatus(tx, run, task, actor, 'cancelled', { ...CLEARED_LEASE, last_failure: toJson(failure) });
   await recomputeRunStatus(tx, run, actor);
+}
+
+async function pauseForBudget(
+  tx: WorkspaceTransaction,
+  run: RunRow,
+  task: TaskRow,
+  exhausted: readonly BudgetDimension[],
+  actor: Actor,
+) {
+  await releaseLeasedTask(tx, run, task, actor, 'budget exhausted', 'BUDGET_EXHAUSTED');
+  await tx.updateTable('runs').set({ budget_blocked: true, updated_at: new Date() }).where('id', '=', run.id).execute();
+  await requestBudgetExtension(tx, run, exhausted, actor);
+  await recomputeRunStatus(tx, { ...run, budget_blocked: true }, actor, `Budget exhausted: ${exhausted.join(', ')}`);
+}
+
+/** A running attempt ran out of budget: hand the task back and pause the run for a budget extension. */
+export async function releaseForBudget(
+  db: Database,
+  claim: ClaimedTask,
+  exhausted: readonly BudgetDimension[],
+  actor: Actor,
+): Promise<void> {
+  await withWorkspace(db, claim.workspaceId, async (tx) => {
+    const run = await lockRun(tx, claim.runId);
+    const task = await lockLeasedTask(tx, claim.taskId, claim.leaseToken);
+    if (run.cancel_requested || isTerminal(run.status)) {
+      await cancelLeasedTask(tx, run, task, actor);
+      return;
+    }
+    await pauseForBudget(tx, run, task, exhausted, actor);
+  });
 }
 
 export type StartResult =
@@ -142,19 +174,7 @@ export async function startAttempt(db: Database, claim: ClaimedTask, actor: Acto
       new Date(),
     );
     if (!budget.ok) {
-      await releaseLeasedTask(tx, run, task, actor, 'budget exhausted');
-      await tx
-        .updateTable('runs')
-        .set({ budget_blocked: true, updated_at: new Date() })
-        .where('id', '=', run.id)
-        .execute();
-      await requestBudgetExtension(tx, run, budget.exhausted, actor);
-      await recomputeRunStatus(
-        tx,
-        { ...run, budget_blocked: true },
-        actor,
-        `Budget exhausted: ${budget.exhausted.join(', ')}`,
-      );
+      await pauseForBudget(tx, run, task, budget.exhausted, actor);
       return { started: false, reason: 'budget' };
     }
     await appendEvent(tx, run, actor, {
