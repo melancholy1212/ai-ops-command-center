@@ -49,4 +49,5 @@ export {
   REGIONS,
   type NormalizedPlan,
 } from './workflow/plan';
+export { compileReport, SCORE_WEIGHTS, SCORING, type CompiledReport } from './workflow/report';
 export type { UserActor } from './commands/common';

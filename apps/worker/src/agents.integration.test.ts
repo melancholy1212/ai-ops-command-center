@@ -244,18 +244,6 @@ describe('discovery agent', () => {
       'tool',
     ]);
 
-    const { rows: run } = await h.admin.query<{
-      spend_cost_usd_micros: string;
-      spend_llm_input_tokens: string;
-      spend_llm_output_tokens: string;
-    }>('select spend_cost_usd_micros, spend_llm_input_tokens, spend_llm_output_tokens from public.runs where id = $1', [
-      runId,
-    ]);
-    expect(run[0]).toEqual({
-      spend_cost_usd_micros: '1155',
-      spend_llm_input_tokens: '30000',
-      spend_llm_output_tokens: '1500',
-    });
     const { rows: task } = await h.admin.query<{ output: { summary: unknown } }>(
       "select output from public.tasks where run_id = $1 and type = 'discover_companies'",
       [runId],
@@ -292,9 +280,14 @@ describe('discovery agent', () => {
       `select type, status from public.tasks where run_id = $1 and type <> 'discover_companies' order by type`,
       [runId],
     );
-    // The report waits for verification, which the scheduler may already have picked up.
     expect(created.map((t) => t.type)).toEqual(['compile_report', 'verify_entity']);
-    expect(created[0]?.status).toBe('blocked');
+    // The report waits for verification (softly: a failed verification still gets reported).
+    const { rows: edges } = await h.admin.query<{ mode: string; on: string }>(
+      `select d.mode, p.type as on from public.task_dependencies d join public.tasks t on t.id = d.task_id
+       join public.tasks p on p.id = d.depends_on_task_id where t.run_id = $1 and t.type = 'compile_report'`,
+      [runId],
+    );
+    expect(edges).toEqual([{ mode: 'soft', on: 'verify_entity' }]);
 
     // Verification runs next: the judge's verdict, policy v1 and confidence, then coverage gaps.
     expect(await waitForTask(runId, ['succeeded', 'failed'], 'verify_entity')).toBe('succeeded');
@@ -315,8 +308,21 @@ describe('discovery agent', () => {
       [runId],
     );
     expect(verifierRuns).toEqual([{ agent: 'verifier', status: 'succeeded', llm_calls: 1 }]);
-    expect(await waitForTask(runId, ['ready'], 'compile_report')).toBe('ready');
-  });
+    // The run's spend: three discovery calls (3 x 385) and the verifier's (2,000 x 0.03 + 500 x 0.17 = 145).
+    const { rows: run } = await h.admin.query<{
+      spend_cost_usd_micros: string;
+      spend_llm_input_tokens: string;
+      spend_llm_output_tokens: string;
+    }>('select spend_cost_usd_micros, spend_llm_input_tokens, spend_llm_output_tokens from public.runs where id = $1', [
+      runId,
+    ]);
+    expect(run[0]).toEqual({
+      spend_cost_usd_micros: '1300',
+      spend_llm_input_tokens: '32000',
+      spend_llm_output_tokens: '2000',
+    });
+    expect(await waitForTask(runId, ['succeeded', 'failed'], 'compile_report')).toBe('succeeded');
+  }, 30_000);
 
   it('fails the execution with the task when the model refuses', async () => {
     const runId = await discoveryRun();

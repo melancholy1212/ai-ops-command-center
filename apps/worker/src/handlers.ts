@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { Budget, ResearchBrief, type ClaimId, type ExecutionId, type SourceId } from '@aoc/contracts';
 import {
   applyVerification,
+  compileReport,
   normalizePlan,
   planSnapshot,
   saveBrief,
@@ -369,6 +370,24 @@ export function createHandlers(deps: AgentDependencies): HandlerRegistry {
             snapshot: planSnapshot(brief, Budget.parse(run.budget), run.workflow_version),
           },
         ],
+      };
+    },
+
+    async compile_report({ claim, db }) {
+      const run = await readRun(db, claim);
+      const brief = ResearchBrief.parse(run.brief);
+      return {
+        kind: 'succeeded',
+        summary: { report: true },
+        // Deterministic code: the report is assembled from rows inside the completion transaction.
+        write: async (tx) => {
+          const report = await compileReport(tx, {
+            run: { id: claim.runId, workspace_id: claim.workspaceId },
+            criteria: brief.criteria,
+            now: (deps.now ?? (() => new Date()))(),
+          });
+          return { artifactIds: [report.artifactId], findingIds: report.findingIds };
+        },
       };
     },
   };

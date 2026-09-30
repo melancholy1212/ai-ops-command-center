@@ -129,6 +129,8 @@ export const ReportContent = z.object({
   excluded: z
     .array(z.object({ companyId: CompanyId, reason: z.string().min(1).max(300), claimIds: z.array(ClaimId).max(20) }))
     .max(50),
+  /** Exclusions beyond the 50 listed: counted, never silently dropped. */
+  excludedOmitted: z.int().nonnegative(),
 });
 
 export const ArtifactContent = z.discriminatedUnion('kind', [OutreachDraftContent, ReportContent]);
