@@ -4,6 +4,15 @@ import { randomUUID } from 'node:crypto';
 import {
   AgentType,
   ApprovalType,
+  ArtifactKind,
+  ArtifactStatus,
+  ClaimAttribute,
+  ClaimStatus,
+  ConfidenceLevel,
+  FindingKind,
+  FindingLabel,
+  GroundingResult,
+  JudgeVerdict,
   CacheStatus,
   ExecutionStatus,
   ExtractionMethod,
@@ -1042,7 +1051,10 @@ describe('isolation and schema drift', () => {
          where conrelid = $1::regclass and contype = 'c'`,
         [`public.${table}`],
       );
-      const def = rows.map((r) => r.def).find((d) => d.includes(`(${column} = ANY`));
+      // The enum CHECK is exactly `CHECK ((column = ANY (ARRAY[...])))`, not a rule that merely mentions the column.
+      const def = rows
+        .map((r) => r.def)
+        .find((d) => d.startsWith(`CHECK ((${column} = ANY (ARRAY[`) && d.endsWith('])))'));
       expect(def, `${table}.${column} has an enum CHECK`).toBeDefined();
       return [...(def ?? '').matchAll(/'([^']+)'::text/g)].map((m) => m[1]).sort();
     };
@@ -1067,5 +1079,14 @@ describe('isolation and schema drift', () => {
     expect(await allowed('sources', 'tier')).toEqual(sorted(SourceTier.options));
     expect(await allowed('sources', 'published_at_method')).toEqual(sorted(PublishedAtMethod.options));
     expect(await allowed('sources', 'extraction_method')).toEqual(sorted(ExtractionMethod.options));
+    expect(await allowed('claims', 'attribute')).toEqual(sorted(ClaimAttribute.options));
+    expect(await allowed('claims', 'status')).toEqual(sorted(ClaimStatus.options));
+    expect(await allowed('claims', 'confidence')).toEqual(sorted(ConfidenceLevel.options));
+    expect(await allowed('evidence', 'grounding')).toEqual(sorted(GroundingResult.options));
+    expect(await allowed('evidence', 'judge_verdict')).toEqual(sorted(JudgeVerdict.options));
+    expect(await allowed('findings', 'kind')).toEqual(sorted(FindingKind.options));
+    expect(await allowed('findings', 'label')).toEqual(sorted(FindingLabel.options));
+    expect(await allowed('artifacts', 'kind')).toEqual(sorted(ArtifactKind.options));
+    expect(await allowed('artifacts', 'status')).toEqual(sorted(ArtifactStatus.options));
   });
 });

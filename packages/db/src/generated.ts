@@ -23,6 +23,8 @@ export type JsonPrimitive = boolean | number | string | null;
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
+export type Numeric = ColumnType<string, number | string, number | string>;
+
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export interface AgentExecutions {
@@ -83,6 +85,30 @@ export interface Approvals {
   workspace_id: string;
 }
 
+export interface ArtifactReferences {
+  artifact_id: string;
+  claim_id: string | null;
+  finding_id: string | null;
+  workspace_id: string;
+}
+
+export interface Artifacts {
+  author_execution_id: string | null;
+  author_kind: string;
+  author_module: string | null;
+  author_version: string | null;
+  content: Json;
+  content_hash: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  kind: string;
+  previous_version_id: string | null;
+  run_id: string;
+  status: string;
+  version: number;
+  workspace_id: string;
+}
+
 export interface AuditLogs {
   action: string;
   actor: Json;
@@ -91,6 +117,44 @@ export interface AuditLogs {
   metadata: Generated<Json>;
   target_id: string | null;
   target_type: string | null;
+  workspace_id: string;
+}
+
+export interface Claims {
+  attribute: string;
+  confidence: string | null;
+  confidence_score: Numeric | null;
+  conflict_state: Generated<string>;
+  conflicting_claim_ids: Generated<string[]>;
+  created_at: Generated<Timestamp>;
+  fingerprint: string;
+  id: Generated<string>;
+  newest_published_at: Timestamp | null;
+  newest_retrieved_at: Timestamp;
+  oldest_published_at: Timestamp | null;
+  proposed_by_agent: string;
+  proposed_by_execution_id: string;
+  raw_value: string;
+  run_id: string;
+  statement: string;
+  status: Generated<string>;
+  subject_company_id: string;
+  superseded_by: string | null;
+  updated_at: Generated<Timestamp>;
+  value: Json;
+  verification: Generated<Json>;
+  workspace_id: string;
+}
+
+export interface Companies {
+  country: string | null;
+  created_at: Generated<Timestamp>;
+  first_seen_run_id: string | null;
+  id: Generated<string>;
+  name: string;
+  normalized_name: string;
+  primary_domain: string | null;
+  updated_at: Generated<Timestamp>;
   workspace_id: string;
 }
 
@@ -103,6 +167,50 @@ export interface DiscoveredUrls {
   origin_kind: string;
   run_id: string;
   url: string;
+  workspace_id: string;
+}
+
+export interface Evidence {
+  claim_id: string;
+  created_at: Generated<Timestamp>;
+  extracted_by_execution_id: string;
+  grounding: string;
+  id: Generated<string>;
+  judge_llm_call_id: string | null;
+  judge_reason: string | null;
+  judge_verdict: string | null;
+  quote: string;
+  quote_sha256: string;
+  source_id: string;
+  source_published_at: Timestamp | null;
+  source_retrieved_at: Timestamp;
+  spans: Generated<Json>;
+  stance: Generated<string>;
+  value_in_quote: boolean | null;
+  workspace_id: string;
+}
+
+export interface FindingClaims {
+  claim_id: string;
+  finding_id: string;
+  role: string;
+  workspace_id: string;
+}
+
+export interface Findings {
+  author_execution_id: string | null;
+  author_kind: string;
+  author_module: string | null;
+  author_version: string | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  kind: string;
+  label: string;
+  run_id: string;
+  score: Json | null;
+  statement: string;
+  subject_company_id: string | null;
+  subject_kind: string;
   workspace_id: string;
 }
 
@@ -140,6 +248,20 @@ export interface Projects {
   id: Generated<string>;
   name: string;
   updated_at: Generated<Timestamp>;
+  workspace_id: string;
+}
+
+export interface ResearchGaps {
+  attempts: Generated<number>;
+  attribute: string;
+  company_id: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  note: string | null;
+  reason: string;
+  resolved_at: Timestamp | null;
+  run_id: string;
+  status: Generated<string>;
   workspace_id: string;
 }
 
@@ -288,10 +410,18 @@ export interface DB {
   agent_executions: AgentExecutions;
   agent_messages: AgentMessages;
   approvals: Approvals;
+  artifact_references: ArtifactReferences;
+  artifacts: Artifacts;
   audit_logs: AuditLogs;
+  claims: Claims;
+  companies: Companies;
   discovered_urls: DiscoveredUrls;
+  evidence: Evidence;
+  finding_claims: FindingClaims;
+  findings: Findings;
   llm_calls: LlmCalls;
   projects: Projects;
+  research_gaps: ResearchGaps;
   run_events: RunEvents;
   runs: Runs;
   sources: Sources;
