@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { RunId, TaskId, WorkspaceId } from '@aoc/contracts';
 import type { ClaimedTask, TaskFailure } from '@aoc/core';
-import { createScriptedProvider, LlmRouter, type ScriptedTurn } from '@aoc/llm';
+import { createScriptedProvider, LlmCallError, LlmRouter, type ScriptedTurn } from '@aoc/llm';
 import { describe, expect, it } from 'vitest';
 import { verifierRole } from '../roles/verifier';
 import type { LoopRecorder } from './loop';
 import type { LlmCallRecord } from './recorder';
+import { toTaskFailure } from './model';
 import { runStructuredCall } from './structured';
 
 function recorder(): LoopRecorder & { calls: LlmCallRecord[] } {
@@ -106,5 +107,15 @@ describe('structured call', () => {
     expect(refused.result.ok || refused.result.error).toMatchObject({ code: 'LLM_REFUSAL' });
     const cut = await run([{ text: '{"verdicts": [', stopReason: 'max_tokens' }]);
     expect(cut.result.ok || cut.result.error).toMatchObject({ code: 'LLM_TRUNCATED' });
+  });
+});
+
+describe('model failures', () => {
+  it('reports a refused account as an operator problem that is not retried', () => {
+    const billing = toTaskFailure(new LlmCallError('billing', 'Provider 402: prepaid credit is used up.'));
+    expect([billing.code, billing.failureClass]).toEqual(['PROVIDER_ACCOUNT', 'permanent']);
+    expect(billing.message).toMatch(/credit or quota used up/);
+    expect(toTaskFailure(new LlmCallError('auth', 'Provider 401')).code).toBe('PROVIDER_ACCOUNT');
+    expect(toTaskFailure(new LlmCallError('unavailable', 'Provider 503')).failureClass).toBe('transient');
   });
 });

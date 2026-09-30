@@ -119,7 +119,7 @@ export interface LlmProvider {
  */
 export class LlmCallError extends Error {
   constructor(
-    readonly kind: 'rate_limited' | 'unavailable' | 'invalid_request' | 'auth' | 'aborted' | 'fixture_miss',
+    readonly kind: 'rate_limited' | 'unavailable' | 'invalid_request' | 'auth' | 'billing' | 'aborted' | 'fixture_miss',
     message: string,
     readonly retryAfterMs: number | null = null,
     readonly retryCount = 0,

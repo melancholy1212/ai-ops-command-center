@@ -1,6 +1,7 @@
 import type { ExecutionId, LlmCallId, RunId, TaskId } from '@aoc/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { kindForStatus } from './retry';
 import {
   costUsdMicros,
   createAnthropicProvider,
@@ -110,6 +111,20 @@ describe('pricing', () => {
 });
 
 describe('in-call retries', () => {
+  it('classifies HTTP statuses: account problems (401, 403, 402) are never retried as provider trouble', () => {
+    expect([401, 403, 402, 429, 408, 503, 400, undefined].map(kindForStatus)).toEqual([
+      'auth',
+      'auth',
+      'billing',
+      'rate_limited',
+      'unavailable',
+      'unavailable',
+      'invalid_request',
+      'unavailable',
+    ]);
+    expect(new LlmCallError('billing', 'credit used up').availability).toBe(false);
+  });
+
   it('honours retry-after (capped at 60 s), then backs off 1 s / 4 s / 10 s and gives up after 3 retries', async () => {
     const waits: number[] = [];
     const error = await withInCallRetries(

@@ -40,6 +40,12 @@ export interface ModelCallResult {
 export function toTaskFailure(error: LlmCallError): TaskFailure {
   if (error.kind === 'rate_limited') return new TaskFailure('PROVIDER_RATE_LIMITED', error.message);
   if (error.kind === 'unavailable') return new TaskFailure('PROVIDER_UNAVAILABLE', error.message);
+  if (error.kind === 'auth' || error.kind === 'billing')
+    return new TaskFailure(
+      'PROVIDER_ACCOUNT',
+      `The model provider refused the account (${error.kind === 'auth' ? 'key or access' : 'credit or quota used up'}): ${error.message}`,
+      { kind: error.kind },
+    );
   return new TaskFailure('INTERNAL_ERROR', `Model call refused: ${error.message}`, { kind: error.kind });
 }
 

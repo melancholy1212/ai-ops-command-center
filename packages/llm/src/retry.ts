@@ -65,6 +65,8 @@ export function kindForStatus(status: number | undefined): LlmCallError['kind'] 
   if (status === undefined) return 'unavailable';
   if (status === 429) return 'rate_limited';
   if (status === 401 || status === 403) return 'auth';
+  // Payment required: the account's credit or quota is used up. Retrying cannot help.
+  if (status === 402) return 'billing';
   if (status === 408 || status === 409 || status >= 500) return 'unavailable';
   return 'invalid_request';
 }

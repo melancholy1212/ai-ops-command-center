@@ -101,6 +101,7 @@ export const FailureCode = z.enum([
   'WORKER_SHUTDOWN', // the worker stopped and handed the task back; the attempt is not counted
   'PROVIDER_RATE_LIMITED', // an LLM or data provider throttled us after in-call retries
   'PROVIDER_UNAVAILABLE', // 5xx, network error or timeout after in-call retries
+  'PROVIDER_ACCOUNT', // the provider refused our account (bad key, no access, credit used up): an operator must act
   'LLM_OUTPUT_INVALID', // output still failed its schema after repair turns
   'LLM_REFUSAL', // the model declined the request
   'LLM_TRUNCATED', // the model hit its output token limit
@@ -121,6 +122,7 @@ export const FAILURE_CLASS = {
   WORKER_SHUTDOWN: 'transient',
   PROVIDER_RATE_LIMITED: 'transient',
   PROVIDER_UNAVAILABLE: 'transient',
+  PROVIDER_ACCOUNT: 'permanent',
   LLM_OUTPUT_INVALID: 'permanent',
   LLM_REFUSAL: 'permanent',
   LLM_TRUNCATED: 'permanent',
