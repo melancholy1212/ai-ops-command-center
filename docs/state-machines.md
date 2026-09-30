@@ -25,15 +25,16 @@ another actor's transaction).
 | — | blocked / ready | worker or user | idempotency key unique per run | insert dependencies; `ready` if it has none |
 | blocked | ready | system | every hard dep `succeeded`, every soft dep terminal | — (runs inside the transaction that finished the last dependency) |
 | blocked | skipped | system | a hard dep failed or was skipped | cascades to its own dependents |
-| ready | running | worker | `run_after ≤ now`, run is `running` (or `planning` for `plan_run`), budget headroom, concurrency slot | set lease owner, fencing token, expiry; `attempt += 1`; insert `agent_executions` row |
+| ready | running | worker | `run_after ≤ now`; run `planning`, `awaiting_plan_approval` or `running`, not cancelled, paused or budget-blocked; fewer than 4 of the run's tasks running; the worker has a handler for the type | set lease owner, fencing token, expiry; `attempt += 1`. The budget is then checked under the run lock: work that would not fit goes back to `ready` without counting the attempt, and the run pauses for a budget extension. (Phase 3 adds the `agent_executions` row.) |
 | running | running | worker | holds the lease | heartbeat extends `lease_expires_at` |
 | running | succeeded | worker | `lease_token` matches and lease not expired | write outputs; insert expanded tasks; promote dependents; recompute run status |
-| running | ready | worker or reaper | transient failure or expired lease, `attempt < max_attempts` | record failure on the execution; `run_after = now + backoff` |
+| running | ready | worker or reaper | transient failure (incl. `LEASE_EXPIRED`, `TASK_TIMEOUT`), `attempt < max_attempts` | record the failure; `run_after = now + backoff` |
+| running | ready | worker | shutdown or pause before the handler started | release: lease cleared, attempt not counted |
 | running | failed | worker or reaper | permanent failure, or attempts exhausted | skip hard dependents; recompute run status |
 | running | waiting_approval | worker | handler of a gate task | create approval(s) with frozen snapshot + hash |
 | waiting_approval | succeeded | user | every approval of the gate decided; plan approved | promote dependents |
 | waiting_approval | failed | user | plan rejected (the run replans, up to 3 revisions, or is cancelled) | — |
-| any non-terminal | cancelled | user | run cancel requested | running tasks stop at their next turn boundary |
+| any non-terminal | cancelled | user | run cancel requested | not-yet-running tasks at once; a running task at its next heartbeat (its handler's signal is aborted) or completion, and its result is discarded |
 
 Terminal statuses: `succeeded`, `failed`, `skipped`, `cancelled`.
 
@@ -44,8 +45,9 @@ Terminal statuses: `succeeded`, `failed`, `skipped`, `cancelled`.
 - **soft**: the dependency must be terminal. Examples: `find_people → verify_entity` (company claims are verified even
   if people discovery failed) and joins across companies (`verify_entity → rank_and_analyze`), so one failed company
   doesn't sink the run; it is excluded from the report with its reason.
-- A task may gain a dependency only while `blocked`, and only inside the transaction that completes one of its
-  existing dependencies. That is how gap-fill adds a second verification round before ranking can start.
+- A task may gain a dependency only while `blocked` (enforced by the engine, which also rejects any change that
+  would create a cycle). In practice it happens inside the transaction that completes another task: that is how
+  gap-fill adds a second verification round before ranking can start.
 - A plan rejection is the one place an edge is replaced. `decideApproval(rejected)` runs one transaction that
   fails `approve_plan` rN, creates `plan_run` and `approve_plan` rN+1, and re-points the still-blocked
   `discover_companies` from rN to rN+1. It is never skipped by the generic "hard dependency failed" rule.
@@ -53,20 +55,29 @@ Terminal statuses: `succeeded`, `failed`, `skipped`, `cancelled`.
 ## Leases and crash safety
 
 - Claiming uses `claim_next_task()`, a `SECURITY DEFINER` function: `UPDATE ... WHERE id = (SELECT ... FOR UPDATE
-  SKIP LOCKED LIMIT 1)`. Two workers can never hold the same task.
-- Lease: 60 s, extended by a heartbeat every 15 s. Long model calls heartbeat from a timer, not from the call.
+  OF task, run SKIP LOCKED LIMIT 1)`. Two workers can never hold the same task. Locking the run row too makes the
+  per-run limit (4 running tasks) exact: a concurrent claimer skips that run until the first claim commits.
+- Every transition locks the run row first, then the task, then approvals. One lock order everywhere means no
+  deadlocks, and two sibling tasks finishing at the same moment can never both miss promoting their dependent.
+- Lease: 60 s, extended by a heartbeat every 15 s from a timer, not from the handler (the heartbeat interval must be
+  at most half the lease). The heartbeat also reports a cancelled run, which aborts the handler's signal.
+- One attempt may run for at most 20 minutes; past that it fails with `TASK_TIMEOUT` (transient, so it is retried).
+  The scheduler records the outcome without waiting for a handler that ignores its signal: the lease token makes
+  any late result from it fail to commit.
 - Completion is **fenced**: `UPDATE tasks SET status='succeeded' ... WHERE id=$1 AND lease_token=$2 AND status='running'`.
   If zero rows match, the lease was lost, and the whole completion transaction rolls back. A slow worker that lost its
   lease can never commit results.
-- `reap_expired_leases()` (also `SECURITY DEFINER`) runs every 10 s in each worker. It marks the execution `abandoned`
-  with `LEASE_EXPIRED` and returns the task to `ready` with backoff (or `failed` if attempts are exhausted).
+- `reap_expired_leases()` (also `SECURITY DEFINER`) runs every 15 s in each worker. It takes over the expired lease
+  with a new token (fencing out the old worker), then the normal transition records `LEASE_EXPIRED` and returns the
+  task to `ready` with backoff (or `failed` if attempts are exhausted). From Phase 3 it also marks the execution
+  `abandoned`.
 
 | Crash point | Outcome |
 |---|---|
 | Worker dies while a task runs | Lease expires; the reaper retries it as a new execution. Tool calls and model calls from the dead attempt stay in the log, and their cost stays in the run's spend. |
 | Worker dies inside a transition | The transaction never committed. Nothing happened. |
 | Worker dies after commit, before acknowledging | Nothing to redo; the state is already correct. |
-| Deploy restarts all workers | SIGTERM: stop claiming, finish or release held leases, exit. Anything unfinished is reaped. |
+| Deploy restarts all workers | SIGTERM: stop claiming, let running handlers finish for up to 10 s, hand the rest back to `ready` without counting the attempt, exit. Anything a killed process held is reaped. |
 | Database unavailable | Workers back off; no state is held elsewhere, so nothing is lost. |
 | Browser refresh | The UI rebuilds from the database and resumes Realtime from the last event sequence. |
 
@@ -110,12 +121,19 @@ draft ──start──► planning ──plan_run ok──► awaiting_plan_app
 | Rule (first match wins) | Status |
 |---|---|
 | cancel requested | `cancelled` |
-| a fatal task failed (`plan_run`, `discover_companies`, `rank_and_analyze`, `compile_report`) | `failed` |
+| no tasks yet | `draft` |
+| a fatal task failed (`plan_run`, `discover_companies`, `rank_and_analyze`, `compile_report`) | `failed` (with that task's failure) |
 | `compile_report` succeeded | `completed` |
-| `approve_plan` is waiting | `awaiting_plan_approval` |
-| user paused, or budget exhausted, or no task can run and a gate is waiting | `paused` (with reason) |
+| every task terminal, but `compile_report` never ran | `failed` (`DEPENDENCY_FAILED`) |
+| user paused | `paused` (`user_requested`) |
+| budget exhausted | `paused` (`budget_exhausted`) |
+| `approve_plan` is ready, running or waiting | `awaiting_plan_approval` |
 | `plan_run` is ready or running | `planning` |
+| nothing ready or running, and a gate is waiting | `paused` (`awaiting_approval`) |
 | otherwise | `running` |
+
+A run cannot reach `awaiting_plan_approval`, `running` or `completed` without a saved brief (a CHECK constraint);
+`plan_run` saves it with `saveBrief` in its completion transaction.
 
 | Transition | Actor | Mechanism |
 |---|---|---|
@@ -123,8 +141,9 @@ draft ──start──► planning ──plan_run ok──► awaiting_plan_app
 | planning → awaiting_plan_approval | worker | `plan_run` succeeds: brief saved, plan approval created |
 | awaiting_plan_approval → running | user | `decideApproval(approved)` |
 | awaiting_plan_approval → planning | user | `decideApproval(rejected, reason)`: new `plan_run` revision with the feedback. A third rejection cancels the run. |
-| running → paused | worker / user | gate waiting, budget exhausted, or `pauseRun` |
+| running → paused | worker / user | gate waiting, budget exhausted, or `pauseRun` (stops new claims; running tasks finish) |
 | paused → running | user | approval decided, budget extension approved, or `resumeRun` |
+| paused (budget) stays paused | user | extension rejected. `resumeRun` lets the scheduler try again: if the budget still doesn't fit, the run pauses and asks for an extension again |
 | → completed / failed / cancelled | worker / user | derived as above; `finishedAt` set |
 
 ## Agent execution

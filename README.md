@@ -16,16 +16,17 @@ Finding → Claim → Evidence → Source snapshot → exact quote
 
 ## Status
 
-**Phase 1 (foundation) is complete.** Each phase ends with typecheck, lint, tests, build and CI green before the
+**Phase 2 (workflow engine) is complete.** Each phase ends with typecheck, lint, tests, build and CI green before the
 next begins.
 
 | Area | Built | Not yet |
 |---|---|---|
 | Monorepo | pnpm 12 + Turborepo, strict TypeScript 6.0, ESLint 10, Prettier, Vitest, CI | — |
 | Contracts | Zod schemas for runs, tasks, executions, claims, evidence, approvals, findings, MCP tools, events | — |
-| Database | Workspaces, members, projects; row-level security for users and for the backend role; personal workspace on signup; pgTAP + integration tests | Workflow, evidence and telemetry tables (Phase 2+) |
+| Database | Workspaces, members, projects; runs, tasks, dependencies, approvals, run events, audit log; row-level security for users and for the backend role; claim and lease-recovery functions; pgTAP + integration tests | Evidence and telemetry tables (Phase 3+) |
+| Workflow engine | Durable task graph with fenced leases, heartbeats, lease recovery, retries with backoff, hard/soft dependencies, idempotent expansion, cycle rejection, cancel/pause/resume, budgets with extension approvals, hash-checked human approvals, plan replanning | Real task handlers (Phase 3+) |
 | Web | Supabase email/password auth, session refresh, dashboard shell | Runs, graph, evidence, approvals UI (Phases 2–6) |
-| Worker | Health, database check, graceful shutdown | Scheduler and agents (Phases 2–5) |
+| Worker | Scheduler: concurrent claims, heartbeats, time limits, lease recovery, graceful shutdown that hands tasks back; tested with competing workers and a SIGKILLed worker | Agents and task handlers (Phases 3–5) |
 | MCP server | MCP handshake over stdio, health endpoint | Tools and authentication (Phase 3) |
 
 ## Run it locally
@@ -40,6 +41,9 @@ pnpm dev           # http://localhost:3000 (from another computer: the LAN URL s
 ```
 
 `pnpm check` runs everything CI's first job runs; `pnpm db:test` and `pnpm test:integration` cover the database.
+Integration tests need the local stack (`pnpm db:start`) and run one package at a time, because the task claim query is
+global: the core engine suite drives full prospect runs through both human gates, and the worker suite runs competing
+workers, kills one with SIGKILL mid-task, and checks that a stalled worker's late result is discarded.
 Details in [docs/deployment.md](docs/deployment.md).
 
 ## Documentation

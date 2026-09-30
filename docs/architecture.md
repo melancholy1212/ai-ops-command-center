@@ -1,9 +1,10 @@
 # Architecture overview
 
-Status: **Phase 1 (foundation) complete.** Implemented: the monorepo and tooling, the domain contracts, the tenancy
-migration with row-level security, Supabase auth with a personal workspace per user, the web app shell, and worker
-and MCP server skeletons. The workflow engine, agents, tools and verification described below are designed but not
-built yet; see the build phases at the end.
+Status: **Phase 2 (workflow engine) complete.** Implemented: the monorepo and tooling, the domain contracts, tenancy
+with row-level security, Supabase auth with a personal workspace per user, the web app shell, the MCP server skeleton,
+and the workflow engine: the Postgres task graph, `@aoc/core` (transitions, commands, approvals, budgets) and the
+worker scheduler. Agents, tools, verification and the run UI described below are designed but not built yet; see the
+build phases at the end.
 
 ## What the system does
 
@@ -114,7 +115,7 @@ packages/
   contracts/      Zod domain contracts
   db/             Kysely client, generated types, workspace-scoped transactions
   config/         tsconfig presets, env validation, logger
-  core/           (Phase 2) domain rules shared by web + worker: commands, state machines, budgets, approvals
+  core/           domain rules shared by web + worker: commands, transitions, approvals, budgets
   llm/            (Phase 3) provider interface, router, adapters, pricing, scripted fake for tests
   providers/      (Phase 3) search / company / people provider interfaces + adapters (used only by mcp-server)
 scripts/          setup-local-env.mjs (local credentials and .env.local files)
@@ -148,7 +149,7 @@ docs/             this documentation and adr/
 |---|---|---|
 | 0 Architecture ✅ | These documents, ADRs, verified contracts | Approved |
 | 1 Foundation ✅ | Monorepo, strict TS, lint, Vitest, env validation, first migration (tenancy + RLS), auth, personal workspace on signup, CI, deployable web/worker/MCP skeletons | typecheck, lint, tests, build, migrations, local startup and CI all green |
-| 2 Workflow engine | Runs, tasks, dependencies, events, approvals; claim/lease/heartbeat/reap/expand/promote; budgets; cancellation; test task types | Multi-worker and kill-mid-task tests pass against real Postgres |
+| 2 Workflow engine ✅ | Runs, tasks, dependencies, events, approvals; claim/lease/heartbeat/reap/expand/promote; budgets; cancellation; scheduler with scripted handlers in tests | Multi-worker and kill-mid-task tests pass against real Postgres |
 | 3 Tools + LLM + first agent | MCP server (search, fetch, egress, provenance, tokens, audit), LLM router + adapters, agent loop, Research agent, eval harness v0 | A traced discovery run on real sources; replay eval passes |
 | 4 Evidence + verification | Sources, claims, evidence, grounding, judge, policies, confidence, gaps, planner, thin run view | First end-to-end run: plan → discover → verify → report |
 | 5 Full workflow | Company + People agents, registry providers, gap-fill, ranking + analysis, outreach, approvals, export | Flagship objective completes |

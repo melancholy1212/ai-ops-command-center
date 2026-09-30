@@ -117,8 +117,8 @@ and admins only; `api_keys.key_hash` excluded through column privileges).
 
 | Function | Security | Purpose |
 |---|---|---|
-| `claim_next_task(worker_id, lease_seconds)` | definer, callable by `app_backend` | Claim one ready task across workspaces with `FOR UPDATE SKIP LOCKED`; returns (task_id, workspace_id, lease_token) |
-| `reap_expired_leases(max_rows)` | definer, callable by `app_backend` | Return tasks with expired leases to ready (or failed); mark executions abandoned |
+| `claim_next_task(worker_id, lease_seconds, task_types, max_parallel_per_run)` | definer, callable by `app_backend` | Lease one ready task of the given types across workspaces (`FOR UPDATE OF task, run SKIP LOCKED`, exact per-run limit); returns (task_id, workspace_id, run_id, task_type, attempt, lease_token) |
+| `reap_expired_leases(worker_id, max_rows)` | definer, callable by `app_backend` | Take over expired leases with a new token and return them; the caller records `LEASE_EXPIRED` through the normal workspace-scoped transition (retry or fail) |
 | `private.is_member(workspace_id)` | definer, stable | RLS helper |
 | `private.current_workspace()` | invoker, stable | RLS helper |
 
