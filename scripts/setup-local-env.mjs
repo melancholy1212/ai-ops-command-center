@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // Local development setup. Requires the local Supabase stack (`pnpm db:start`).
 //   1. gives the aoc_service login role a fresh random password (local database only)
-//   2. writes git-ignored .env.local files for web, worker and mcp-server
+//   2. writes git-ignored .env.local files for web, worker and mcp-server, including this machine's
+//      LAN addresses as allowed dev origins (so the app also works when opened from another computer)
 // Secrets are never printed. Rerunning rotates the local password and rewrites the files.
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
+import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -49,11 +51,18 @@ const db = new URL(status.DB_URL);
 db.username = 'aoc_service';
 db.password = password;
 
+// Non-loopback IPv4 addresses, e.g. the VM's address when the browser runs on the host machine.
+const lanAddresses = Object.values(networkInterfaces())
+  .flat()
+  .filter((net) => net && net.family === 'IPv4' && !net.internal)
+  .map((net) => net.address);
+
 const header = '# Written by `pnpm setup:local`. Local development only; never commit.\n';
 const files = {
   'apps/web/.env.local': {
     NEXT_PUBLIC_SUPABASE_URL: status.API_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: status.PUBLISHABLE_KEY,
+    ALLOWED_DEV_ORIGINS: lanAddresses.join(','),
   },
   'apps/worker/.env.local': { DATABASE_URL: db.toString(), LOG_LEVEL: 'info', HEALTH_PORT: '8081' },
   'apps/mcp-server/.env.local': { LOG_LEVEL: 'info', HEALTH_PORT: '8082' },
@@ -66,3 +75,5 @@ for (const [file, vars] of Object.entries(files)) {
   console.log(`wrote ${file} (${Object.keys(vars).join(', ')})`);
 }
 console.log('aoc_service password rotated on the local database.');
+if (lanAddresses.length > 0)
+  console.log(`web dev server also reachable at: ${lanAddresses.map((a) => `http://${a}:3000`).join(', ')}`);

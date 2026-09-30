@@ -92,6 +92,13 @@ pnpm dev             # web on :3000, worker health on :8081, MCP server health o
   `supabase/.temp/postgres-version` (git-ignored, local only) pins the Postgres image that is on disk; CI pulls the
   CLI's default image.
 - `pnpm setup:local` never prints a secret. It can be rerun at any time (it rotates the local password).
+- Opening the app from another computer (e.g. the host of a VM): use the machine's network address, not `localhost`.
+  Next.js blocks dev-server resources from origins other than `localhost` unless they are listed in
+  `allowedDevOrigins`, which `next.config.ts` reads from `ALLOWED_DEV_ORIGINS`. `pnpm setup:local` writes this
+  machine's LAN addresses there and prints the URLs; restart `pnpm dev` after running it. Dev only; production is
+  unaffected.
+- The sign-in / create-account switch is a plain link (`/sign-in?mode=sign-up`), so both forms work even if
+  JavaScript fails to load.
 - Credentials that aren't configured stay as placeholders. Everything that doesn't need them keeps working.
 
 ## Production database role (one-time)

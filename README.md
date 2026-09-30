@@ -34,7 +34,7 @@ Requires Node.js 22, pnpm 12 and Docker.
 pnpm install
 pnpm db:start      # local Supabase (own ports: 55321 API, 55322 Postgres)
 pnpm setup:local   # local-only credentials and git-ignored .env.local files
-pnpm dev           # http://localhost:3000
+pnpm dev           # http://localhost:3000 (from another computer: the LAN URL setup:local prints)
 ```
 
 `pnpm check` runs everything CI's first job runs; `pnpm db:test` and `pnpm test:integration` cover the database.
