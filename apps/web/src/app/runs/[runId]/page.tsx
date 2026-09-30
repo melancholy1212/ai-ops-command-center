@@ -43,7 +43,7 @@ const Score = z.object({
 const Failure = z.object({ code: z.string(), message: z.string().optional() });
 const CLAIM_ORDER = ['verified', 'probable', 'contested', 'grounded', 'proposed', 'stale', 'rejected'];
 
-export default async function RunPage({ params }: PageProps<'/runs/[runId]'>) {
+export default async function RunPage({ params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params;
   if (!z.uuid().safeParse(runId).success) notFound();
   const session = await requireUser();
