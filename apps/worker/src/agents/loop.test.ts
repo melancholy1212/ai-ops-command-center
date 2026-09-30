@@ -328,6 +328,157 @@ describe('tool loop', () => {
     expect(refused?.role === 'tool' && refused.results[0]?.content).toMatch(/unavailable in this task/);
   });
 
+  it('pauses search after two searches without opening a page, and resumes it once a page is read', async () => {
+    const search = (q: string) => toolCall('web_search', { query: q });
+    const provider = earthruntime([
+      turn(search('a')),
+      turn(search('b')),
+      turn(search('c')),
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+    ]);
+    const { result, client, rec } = await run(provider);
+    expect(result.ok).toBe(true);
+    const offered = (i: number) => provider.requests[i]?.tools.map((t) => t.name);
+    expect(offered(1)).toContain('web_search');
+    // After the second search: not offered, the model is told why, and a call anyway is refused unexecuted.
+    expect(offered(2)).not.toContain('web_search');
+    const told = provider.requests[2]?.messages.at(-1);
+    expect(told?.role === 'user' && told.content).toMatch(/^Search is paused/);
+    const refused = provider.requests[3]?.messages.at(-1);
+    expect(refused?.role === 'tool' && refused.results[0]?.content).toMatch(/Search is paused/);
+    expect(client.received.filter((r) => r.name === 'web_search')).toHaveLength(2);
+    // Reading a page resets the count.
+    expect(offered(4)).toContain('web_search');
+    expect(
+      rec.messages.filter((m) => m.role === 'user' && (m.content as { text: string }).text === 'pacing'),
+    ).toHaveLength(1);
+  });
+
+  it('counts parallel searches in one turn against the pace', async () => {
+    const provider = earthruntime([
+      turn(...['a', 'b', 'c', 'd'].map((q) => toolCall('web_search', { query: q }))),
+      turn(toolCall(SUBMIT_TOOL, { claims: [] })),
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [] })),
+    ]);
+    const { result, client } = await run(provider);
+    expect(result.ok).toBe(true);
+    expect(client.received.filter((r) => r.name === 'web_search')).toHaveLength(2);
+    const results = provider.requests[1]?.messages.find((m, i, all) => m.role === 'tool' && i === all.length - 2);
+    expect(results?.role === 'tool' && results.results.map((r) => r.isError)).toEqual([false, false, true, true]);
+  });
+
+  it('sends back an empty result from a model that found search results but opened none', async () => {
+    const provider = earthruntime([
+      turn(toolCall('web_search', { query: 'Nordic climate software seed' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [] })),
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [] })),
+    ]);
+    const { result } = await run(provider);
+    expect(result.ok && result.value).toEqual({ claims: [] });
+    const repair = provider.requests[2]?.messages.at(-1);
+    expect(repair?.role === 'tool' && repair.results[0]?.content).toMatch(/not read any page successfully/);
+  });
+
+  it('sends an empty result back at most once: the check is advice, not a way to fail an honest result', async () => {
+    const provider = earthruntime([
+      turn(toolCall('web_search', { query: 'Nordic climate software seed' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [] })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [] })),
+    ]);
+    const { result } = await run(provider);
+    expect(result.ok && result.value).toEqual({ claims: [] });
+    expect(provider.requests).toHaveLength(3);
+  });
+
+  it('sends back an empty result after failed reads once, then accepts it', async () => {
+    const client = tools();
+    const original = client.call.bind(client);
+    client.call = (name, args, id, signal) =>
+      name === 'fetch_page'
+        ? Promise.resolve({
+            ok: false,
+            error: { code: 'ROBOTS_DISALLOWED', message: 'Disallowed.', retryable: false, retryAfterMs: null },
+          })
+        : original(name, args, id, signal);
+    const provider = earthruntime([
+      turn(toolCall('web_search', { query: 'Nordic climate software seed' })),
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [] })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [] })),
+    ]);
+    const outcome = await runToolLoop({
+      role: discoveryRole,
+      input,
+      router: new LlmRouter({ providers: [provider] }),
+      tools: client,
+      recorder: recorder(),
+      checkBudget: () => Promise.resolve([]),
+      signal: new AbortController().signal,
+    });
+    expect(outcome).toEqual({ claims: [] });
+    expect(provider.requests).toHaveLength(4);
+  });
+
+  it('keeps the valid claims of a last-turn result and records the ones it dropped', async () => {
+    const role = { ...discoveryRole, limits: { ...discoveryRole.limits, maxTurns: 3 } };
+    const unread = '5f0a3c1e-0000-4000-8000-00000000dead';
+    const mixed = {
+      claims: [
+        claim(),
+        claim(unread),
+        {
+          ...claim(),
+          evidence: [
+            { sourceId: unread, quote: QUOTE },
+            { sourceId: SOURCE, quote: QUOTE },
+          ],
+        },
+      ],
+    };
+    const provider = earthruntime([
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall('web_search', { query: 'more' })),
+      turn(toolCall(SUBMIT_TOOL, mixed)),
+    ]);
+    const { result, rec } = await run(provider, { role });
+    // The claim citing only an unread source is gone; the mixed one keeps its readable quote only.
+    expect(result.ok && result.value).toEqual({
+      claims: [claim(), { ...claim(), evidence: [{ sourceId: SOURCE, quote: QUOTE }] }],
+    });
+    const salvaged = rec.messages.find((m) => (m.content as { salvaged?: boolean }).salvaged);
+    expect((salvaged?.content as { dropped: string[] }).dropped).toEqual([
+      'claims.1: 1 quote(s) cite sources not read in this task',
+      'claims.2: 1 quote(s) cite sources not read in this task',
+    ]);
+  });
+
+  it('salvages after the repairs run out, and still fails when nothing valid is left', async () => {
+    const unread = '5f0a3c1e-0000-4000-8000-00000000dead';
+    const mixed = { claims: [claim(), claim(unread)] };
+    const salvaged = await run(
+      earthruntime([
+        turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+        turn(toolCall(SUBMIT_TOOL, mixed)),
+        turn(toolCall(SUBMIT_TOOL, mixed)),
+        turn(toolCall(SUBMIT_TOOL, mixed)),
+      ]),
+    );
+    expect(salvaged.result.ok && salvaged.result.value).toEqual({ claims: [claim()] });
+
+    const role = { ...discoveryRole, limits: { ...discoveryRole.limits, maxTurns: 2 } };
+    const hopeless = await run(
+      earthruntime([
+        turn(toolCall('web_search', { query: 'x' })),
+        turn(toolCall(SUBMIT_TOOL, { claims: [claim(unread)] })),
+      ]),
+      { role },
+    );
+    expect(hopeless.result.ok || hopeless.result.error).toMatchObject({ code: 'AGENT_LIMIT_REACHED' });
+  });
+
   it('answers unparseable tool arguments with an error the model can fix', async () => {
     const provider = earthruntime([
       { toolCalls: [{ id: 'bad', name: 'web_search', argumentsJson: '{not json' }] },

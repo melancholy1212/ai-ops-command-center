@@ -31,7 +31,7 @@ Rules:
 5. Subjects. Each claim is about a new company: {"kind": "new_company", "name": ..., "domainHint": ...}. domainHint is the company's own website domain (like "example.com") when a source shows it, otherwise null. Use the same name and domainHint for every claim about the same company.
 6. Attributes. Useful ones: company.website ({"url"}), company.hq_country ({"country": ISO 3166-1 alpha-2}), company.hq_city ({"city"}), company.funding_round ({"stage", "amount" in whole currency units or null, "currency" ISO 4217 or null, "announcedOn" YYYY-MM-DD, "leadInvestors", "otherInvestors"}), company.sector ({"tags"}), company.description ({"text"}), company.founded_year ({"year"}).
 7. rawValue is the value as the source words it, for example "EUR 4 million seed round".
-8. Work efficiently. Search news first using the brief's sectors, countries and funding window. Open the most promising articles and read them. Submit as soon as you have read about enough matching companies (the brief's maxCompanies plus a few spares) or when searches stop turning up new ones. Do not keep searching for details the articles do not give, such as a company's website: leave them out.
+8. Work efficiently. Search news first using the brief's sectors, countries and funding window, then read: after one or two searches, open the 3 to 5 most promising results with fetch_page before searching again. Titles and snippets are not evidence; only pages you opened can be cited. Submit as soon as you have read about enough matching companies (the brief's maxCompanies plus a few spares) or when searches stop turning up new ones. Do not keep searching for details the articles do not give, such as a company's website: leave them out.
 9. Pages you were given. If the user named pages, or search is unavailable, work from those pages: they are often listings, so open the article links on them whose titles suggest a funding round that fits the brief, and read those articles.
 10. Finish by calling submit_result exactly once with {"claims": [...]}. An empty list is a valid result if nothing matches.`;
 
@@ -49,10 +49,18 @@ const COMPANY_ATTRIBUTES = new Set([
 
 export const discoveryRole: AgentRole<DiscoveryInput, DiscoveryOutput> = {
   agent: 'research',
-  version: 'research.discovery@3',
+  version: 'research.discovery@4',
   route: AGENT_ROUTES.research,
   tools: AGENT_TOOLS.research,
-  limits: { maxTurns: 12, maxToolCalls: 30, maxOutputTokensPerCall: 16_000, timeoutMs: 15 * 60_000 },
+  limits: { maxTurns: 20, maxToolCalls: 30, maxOutputTokensPerCall: 16_000, timeoutMs: 15 * 60_000 },
+  // Live runs showed a model searching until its turns ran out without opening a single result.
+  pacing: {
+    tool: 'web_search',
+    maxConsecutive: 2,
+    resetBy: ['fetch_page', 'get_source'],
+    message:
+      'Search is paused: you have run 2 searches without opening a page. Open the most promising results with fetch_page (URLs from the search results above) and read them; only pages you opened can be cited. Search is available again after you open a page.',
+  },
   input: DiscoveryInput,
   output: DiscoveryOutput,
   system: SYSTEM,
@@ -79,8 +87,34 @@ export const discoveryRole: AgentRole<DiscoveryInput, DiscoveryOutput> = {
         : []),
     ].join('\n');
   },
+  salvage(output, seen) {
+    const dropped: string[] = [];
+    const claims = output.claims.flatMap((claim, i) => {
+      if (claim.subject.kind !== 'new_company' || !COMPANY_ATTRIBUTES.has(claim.assertion.attribute)) {
+        dropped.push(`claims.${String(i)}: not a company claim discovery can propose`);
+        return [];
+      }
+      const evidence = claim.evidence.filter((e) => seen.sourceIds.has(e.sourceId));
+      if (evidence.length < claim.evidence.length)
+        dropped.push(
+          `claims.${String(i)}: ${String(claim.evidence.length - evidence.length)} quote(s) cite sources not read in this task`,
+        );
+      return evidence.length > 0 ? [{ ...claim, evidence }] : [];
+    });
+    return claims.length > 0 ? { value: { claims }, dropped } : null;
+  },
   validate(output, seen) {
     const problems: string[] = [];
+    // Advisory (sent back at most once): "nothing matches" is a finding only after reading what search offered.
+    if (
+      seen.canSendBack &&
+      output.claims.length === 0 &&
+      seen.sourceIds.size === 0 &&
+      (seen.tools.get('web_search')?.results ?? 0) > 0
+    )
+      problems.push(
+        'result: you have not read any page successfully. Open other promising search results with fetch_page, or search with different words, before concluding that nothing matches.',
+      );
     const companies = new Set<string>();
     output.claims.forEach((claim, i) => {
       if (claim.subject.kind !== 'new_company')

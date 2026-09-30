@@ -208,7 +208,7 @@ describe('discovery agent', () => {
       turns: 3,
       llm_calls: 3,
       tool_calls: 2,
-      agent_version: 'research.discovery@3',
+      agent_version: 'research.discovery@4',
     });
     expect(exec?.output?.claims).toHaveLength(1);
     // gpt-oss-120b: (10,000 x 0.03 + 500 x 0.17) micro-USD per call = 385.
