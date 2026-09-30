@@ -1,5 +1,7 @@
 # AI Operations Command Center
 
+[![CI](https://github.com/melancholy1212/ai-ops-command-center/actions/workflows/ci.yml/badge.svg)](https://github.com/melancholy1212/ai-ops-command-center/actions/workflows/ci.yml)
+
 A multi-agent research platform that turns a business objective into verified, evidence-linked results. It runs a
 durable task graph, has a custom MCP capability server, verifies every finding against saved sources, and pauses for
 human approval before anything leaves the system.

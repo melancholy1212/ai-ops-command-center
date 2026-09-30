@@ -30,7 +30,8 @@ Railway: about $5–10 per month for two small always-on services. Vercel Hobby:
 
 ## CI/CD
 
-- **CI (GitHub Actions) on every push:** lint, typecheck, unit tests, build. Then an integration job that starts the
+- **CI (GitHub Actions) on every push:** actions pinned to commit SHAs (kept current by Dependabot), runner pinned to `ubuntu-24.04`, read-only token. GitHub secret scanning with push protection and Dependabot vulnerability alerts are enabled on the repository.
+  Jobs: lint, typecheck, unit tests, build. Then an integration job that starts the
   Supabase local stack (database and auth only), applies all migrations, runs pgTAP RLS tests and database integration
   tests. From Phase 3, also `replay-all` evals.
 - **Deploy:** Vercel and Railway deploy from `main` through their Git integrations, gated on CI where the platform
