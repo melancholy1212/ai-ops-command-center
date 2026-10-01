@@ -118,7 +118,7 @@ export async function assertApprovalCurrent(
     .selectFrom('approvals')
     .selectAll()
     .where('id', '=', approvalId)
-    .forUpdate()
+    .forNoKeyUpdate()
     .executeTakeFirstOrThrow();
   if (snapshotHash(ApprovalSnapshot.parse(currentSnapshot)) === approval.snapshot_hash) return true;
   if (approval.status === 'pending' || approval.status === 'approved') {

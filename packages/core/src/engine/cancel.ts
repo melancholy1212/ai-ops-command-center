@@ -22,7 +22,7 @@ export async function cancelRunInTx(
     .select(['id', 'type', 'status', 'attempt'])
     .where('run_id', '=', run.id)
     .where('status', 'in', ['blocked', 'ready', 'waiting_approval'])
-    .forUpdate()
+    .forNoKeyUpdate()
     .execute();
   if (pending.length > 0) {
     await tx

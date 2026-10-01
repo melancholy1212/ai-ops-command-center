@@ -20,9 +20,13 @@ export type RunRow = Selectable<DB['runs']>;
 /**
  * Every transition starts here: locking the run row serialises all changes within one run, so two
  * tasks finishing at the same moment can never both miss promoting their shared dependent.
+ *
+ * FOR NO KEY UPDATE, not FOR UPDATE: lockers still exclude each other, but the lock does not conflict
+ * with the key-share lock a foreign key takes when a child row (llm_calls, tool_calls, run_events) is
+ * inserted. Transactions that insert a child row and then lock the run would otherwise deadlock.
  */
 export async function lockRun(tx: WorkspaceTransaction, runId: RunId | string): Promise<RunRow> {
-  const run = await tx.selectFrom('runs').selectAll().where('id', '=', runId).forUpdate().executeTakeFirst();
+  const run = await tx.selectFrom('runs').selectAll().where('id', '=', runId).forNoKeyUpdate().executeTakeFirst();
   if (!run) throw new DomainError('NOT_FOUND', 'Run not found.');
   return run;
 }

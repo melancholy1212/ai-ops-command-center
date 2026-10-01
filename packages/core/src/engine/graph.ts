@@ -30,7 +30,7 @@ export async function lockLeasedTask(tx: WorkspaceTransaction, taskId: string, l
     .where('id', '=', taskId)
     .where('lease_token', '=', leaseToken)
     .where('status', '=', 'running')
-    .forUpdate()
+    .forNoKeyUpdate()
     .executeTakeFirst();
   if (!task) throw new LeaseLostError(taskId);
   return task;

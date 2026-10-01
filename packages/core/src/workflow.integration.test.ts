@@ -55,7 +55,7 @@ import { assertApprovalCurrent } from './engine/approvals';
 import { createTasks } from './engine/graph';
 import { claimNextTask, recoverExpiredLeases } from './engine/queue';
 import { lockRun } from './engine/runs';
-import { recordSpend } from './engine/spend';
+import { recordSpend, recordSpendInTx } from './engine/spend';
 import {
   cancelTask,
   completeTask,
@@ -1025,6 +1025,40 @@ describe('budget', () => {
       .filter((e) => e.type === 'budget.threshold_crossed')
       .map((e) => (e.data as { percent: number }).percent);
     expect(crossed).toEqual([50, 80, 100]);
+  });
+});
+
+describe('run row locking', () => {
+  it('lets transactions that already wrote child rows of a run record spend concurrently, without deadlocking', async () => {
+    // Found live: parallel verifications each inserted an llm_calls row (the foreign key takes a key-share lock
+    // on the run) and then locked the run to add spend. FOR UPDATE conflicts with key-share: a deadlock.
+    const runId = await startedRun();
+    let arrived = 0;
+    let release: () => void = () => undefined;
+    const barrier = new Promise<void>((resolve) => (release = resolve));
+    const meet = () => {
+      arrived += 1;
+      if (arrived === 2) release();
+      return barrier;
+    };
+    const writer = (seq: number) =>
+      withWorkspace(h.db, owner.workspaceId, async (tx) => {
+        await tx
+          .insertInto('run_events')
+          .values({
+            run_id: runId,
+            workspace_id: owner.workspaceId,
+            seq,
+            type: 'llm.call_completed',
+            actor: JSON.stringify(WORKER),
+          })
+          .execute();
+        await meet();
+        await recordSpendInTx(tx, runId, { costUsdMicros: 100 }, WORKER);
+      });
+    await Promise.all([writer(900_001), writer(900_002)]);
+    const run = await runRow(runId);
+    expect(Number(run.spend_cost_usd_micros)).toBe(200);
   });
 });
 

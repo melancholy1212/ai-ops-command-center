@@ -41,7 +41,7 @@ export async function decideApproval(
       .selectFrom('approvals')
       .selectAll()
       .where('id', '=', command.approvalId)
-      .forUpdate()
+      .forNoKeyUpdate()
       .executeTakeFirstOrThrow();
     if (approval.status !== 'pending')
       throw new DomainError('INVALID_STATE', `This approval is already ${approval.status}.`);
@@ -108,7 +108,12 @@ export async function decideApproval(
  * succeeds: rejected drafts are simply left out of the report.
  */
 async function resolveGate(tx: WorkspaceTransaction, run: RunRow, gateId: string, actor: Actor) {
-  const gate = await tx.selectFrom('tasks').selectAll().where('id', '=', gateId).forUpdate().executeTakeFirstOrThrow();
+  const gate = await tx
+    .selectFrom('tasks')
+    .selectAll()
+    .where('id', '=', gateId)
+    .forNoKeyUpdate()
+    .executeTakeFirstOrThrow();
   if (gate.status !== 'waiting_approval') return;
   const approvals = await tx
     .selectFrom('approvals')
