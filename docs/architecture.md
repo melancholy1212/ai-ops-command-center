@@ -1,11 +1,13 @@
 # Architecture overview
 
-Status: **Phase 3 (tools, LLM layer, first agent) complete.** Implemented: the monorepo and tooling, the domain
-contracts, tenancy with row-level security, Supabase auth with a personal workspace per user, the web app shell, the
-workflow engine (Postgres task graph, `@aoc/core`, worker scheduler), the LLM layer (`@aoc/llm`: router, Anthropic and
-OpenAI-compatible adapters, pricing, record/replay), the MCP server with capability tokens, the egress-safe fetcher and
-three tools, the agent runtime with the Research agent for discovery, and the eval harness. Verification, the planner,
-the other agents and the run UI described below are designed but not built yet; see the build phases at the end.
+Status: **Phase 4 (evidence + verification) built; its exit run is still open.** Implemented: the monorepo and
+tooling, the domain contracts, tenancy with row-level security, Supabase auth with a personal workspace per user, the
+workflow engine (Postgres task graph, `@aoc/core`, worker scheduler), the LLM layer (`@aoc/llm`), the MCP server with
+capability tokens, the egress-safe fetcher and three tools, the agent runtime, the Research agent, planner and
+verifier, grounding, policy and confidence in code, the code-only report, a thin run view, and the eval harness. The
+full workflow is proven end to end with a scripted model. A live run has not yet reached verification with real
+companies: live discovery still comes back empty. The other agents and the full control room are designed but not
+built; see the build phases at the end.
 
 ## What the system does
 
@@ -152,7 +154,7 @@ docs/             this documentation and adr/
 | 1 Foundation ✅ | Monorepo, strict TS, lint, Vitest, env validation, first migration (tenancy + RLS), auth, personal workspace on signup, CI, deployable web/worker/MCP skeletons | typecheck, lint, tests, build, migrations, local startup and CI all green |
 | 2 Workflow engine ✅ | Runs, tasks, dependencies, events, approvals; claim/lease/heartbeat/reap/expand/promote; budgets; cancellation; scheduler with scripted handlers in tests | Multi-worker and kill-mid-task tests pass against real Postgres |
 | 3 Tools + LLM + first agent ✅ | MCP server (search, fetch, egress, provenance, tokens, audit), LLM router + adapters, agent loop, Research agent, eval harness v0 | A traced discovery run on real sources; replay eval passes |
-| 4 Evidence + verification | Sources, claims, evidence, grounding, judge, policies, confidence, gaps, planner, thin run view | First end-to-end run: plan → discover → verify → report |
+| 4 Evidence + verification (built; live exit run open) | Sources, claims, evidence, grounding, judge, policies, confidence, gaps, planner, thin run view | First end-to-end run: plan → discover → verify → report |
 | 5 Full workflow | Company + People agents, registry providers, gap-fill, ranking + analysis, outreach, approvals, export | Flagship objective completes |
 | 6 Control room UI | Dashboard, live run view, drill-down, approvals, agents, MCP, evidence pages | Usable without the database console |
 | 7 Hardening | Rate limits, security tests, backups, demo mode, docs | MVP criteria met |
