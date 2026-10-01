@@ -612,6 +612,40 @@ describe('tool loop', () => {
     expect(opened.requests).toHaveLength(3);
   });
 
+  it('sends back a quote too short to ground, so the model can fix it instead of losing the claim', async () => {
+    const short = { ...claim(), evidence: [{ sourceId: SOURCE, quote: 'Stockholm-based Northwind' }] };
+    const provider = earthruntime([
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [short] })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+    ]);
+    const { result } = await run(provider);
+    expect(result.ok && result.value).toEqual({ claims: [claim()] });
+    const repair = provider.requests[2]?.messages.at(-1);
+    expect(repair?.role === 'tool' && repair.results[0]?.content).toMatch(
+      /claims\.0\.evidence\.0\.quote: has 3 word\(s\); quote at least 4 words/,
+    );
+  });
+
+  it('drops short quotes at the last turn and keeps the claim when another quote remains', async () => {
+    const role = { ...discoveryRole, limits: { ...discoveryRole.limits, maxTurns: 2 } };
+    const mixed = {
+      ...claim(),
+      evidence: [
+        { sourceId: SOURCE, quote: 'Stockholm-based Northwind' },
+        { sourceId: SOURCE, quote: QUOTE },
+      ],
+    };
+    const provider = earthruntime([
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [mixed] })),
+    ]);
+    const { result, rec } = await run(provider, { role });
+    expect(result.ok && result.value).toEqual({ claims: [claim()] });
+    const salvaged = rec.messages.find((m) => (m.content as { salvaged?: boolean }).salvaged);
+    expect((salvaged?.content as { dropped: string[] }).dropped).toEqual(['claims.0: 1 quote(s) too short to ground']);
+  });
+
   it('answers unparseable tool arguments with an error the model can fix', async () => {
     const provider = earthruntime([
       { toolCalls: [{ id: 'bad', name: 'web_search', argumentsJson: '{not json' }] },

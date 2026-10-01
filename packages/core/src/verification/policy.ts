@@ -16,7 +16,23 @@ import type {
 } from '@aoc/contracts';
 import { independentGroups } from './independence';
 
-export const POLICY = { id: 'verification', version: 1 } as const;
+/** Version 2: a funding round's date is checked against source publication dates (DATE_UNVERIFIED). */
+export const POLICY = { id: 'verification', version: 2 } as const;
+
+/** A round reported as news is announced shortly before (or on the day of) the article that reports it. */
+export const ANNOUNCEMENT_WINDOW_DAYS = { before: 30, after: 1 } as const;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Whether a claimed announcement date fits a source's publication date. */
+export function dateFitsPublication(announcedOn: string, publishedAt: Date | null): boolean {
+  if (publishedAt === null) return false;
+  const announced = Date.parse(`${announcedOn}T00:00:00Z`);
+  const published = Date.UTC(publishedAt.getUTCFullYear(), publishedAt.getUTCMonth(), publishedAt.getUTCDate());
+  return (
+    announced <= published + ANNOUNCEMENT_WINDOW_DAYS.after * DAY_MS &&
+    announced >= published - ANNOUNCEMENT_WINDOW_DAYS.before * DAY_MS
+  );
+}
 
 export interface EvidenceFeatures {
   evidenceId: string;
@@ -44,6 +60,8 @@ export interface PolicyOutcome {
   supporting: EvidenceFeatures[];
   independentSources: number;
   authoritative: boolean;
+  /** A funding round whose date no supporting source's publication date backs. */
+  dateUnverified: boolean;
 }
 
 const reason = (code: VerificationReasonCode, detail: string, evidenceIds: string[] = []): VerificationReason => ({
@@ -118,7 +136,14 @@ export function evaluatePolicy(assertion: ClaimAssertion, evidence: readonly Evi
     (e) => e.valueInQuote !== false && (e.judge === 'supports' || e.judge === 'partially_supports'),
   );
   if (supporting.length === 0 || contradicting.length > 0) {
-    return { status: 'rejected', reasons, supporting: [], independentSources: 0, authoritative: false };
+    return {
+      status: 'rejected',
+      reasons,
+      supporting: [],
+      independentSources: 0,
+      authoritative: false,
+      dateUnverified: false,
+    };
   }
 
   const { groups, syndicated } = independentGroups(
@@ -181,8 +206,28 @@ export function evaluatePolicy(assertion: ClaimAssertion, evidence: readonly Evi
       ),
     );
 
+  // The judge never sees a round's date (judgeStatement); code checks it against publication dates.
+  const dateUnverified =
+    assertion.attribute === 'company.funding_round' &&
+    !supporting.some((e) => dateFitsPublication(assertion.value.announcedOn, e.publishedAt));
+  if (dateUnverified)
+    reasons.push(
+      reason(
+        'DATE_UNVERIFIED',
+        `No supporting source was published within ${String(ANNOUNCEMENT_WINDOW_DAYS.before)} days after the claimed announcement date.`,
+        supporting.map((e) => e.evidenceId),
+      ),
+    );
+
   if (!verified && onlyUserGenerated) {
-    return { status: 'rejected', reasons, supporting, independentSources: independent, authoritative: isAuthoritative };
+    return {
+      status: 'rejected',
+      reasons,
+      supporting,
+      independentSources: independent,
+      authoritative: isAuthoritative,
+      dateUnverified,
+    };
   }
   return {
     status: verified ? 'verified' : 'probable',
@@ -190,6 +235,7 @@ export function evaluatePolicy(assertion: ClaimAssertion, evidence: readonly Evi
     supporting,
     independentSources: independent,
     authoritative: isAuthoritative,
+    dateUnverified,
   };
 }
 
@@ -205,7 +251,7 @@ export interface ConfidenceOutcome {
 /** Confidence is arithmetic over the evidence, never a model's opinion. Every adjustment is a recorded reason. */
 export function computeConfidence(
   status: 'verified' | 'probable' | 'contested',
-  outcome: Pick<PolicyOutcome, 'supporting' | 'independentSources' | 'authoritative'>,
+  outcome: Pick<PolicyOutcome, 'supporting' | 'independentSources' | 'authoritative' | 'dateUnverified'>,
   now: Date,
 ): ConfidenceOutcome {
   const reasons: VerificationReason[] = [];
@@ -222,6 +268,7 @@ export function computeConfidence(
     reasons.push(reason('SOURCE_TOO_OLD', 'The newest source is older than 12 months.', ids));
   }
   if (outcome.supporting.some((e) => e.judge === 'partially_supports')) score -= 0.1;
+  if (outcome.dateUnverified) score -= 0.1;
   const injected = outcome.supporting.filter((e) => e.flags.includes('suspected_prompt_injection'));
   if (injected.length > 0) {
     score -= 0.2;

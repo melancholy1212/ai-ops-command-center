@@ -4,6 +4,7 @@
  * persistence happen in code afterwards (Phase 4); this role only proposes.
  */
 import { AGENT_ROUTES, AGENT_TOOLS, HttpUrl, InterpretedCriteria, IsoDate, ProposedClaim } from '@aoc/contracts';
+import { verification } from '@aoc/core';
 import { z } from 'zod';
 import type { AgentRole } from '../agents/loop';
 
@@ -94,11 +95,15 @@ export const discoveryRole: AgentRole<DiscoveryInput, DiscoveryOutput> = {
         dropped.push(`claims.${String(i)}: not a company claim discovery can propose`);
         return [];
       }
-      const evidence = claim.evidence.filter((e) => seen.sourceIds.has(e.sourceId));
-      if (evidence.length < claim.evidence.length)
+      const read = claim.evidence.filter((e) => seen.sourceIds.has(e.sourceId));
+      if (read.length < claim.evidence.length)
         dropped.push(
-          `claims.${String(i)}: ${String(claim.evidence.length - evidence.length)} quote(s) cite sources not read in this task`,
+          `claims.${String(i)}: ${String(claim.evidence.length - read.length)} quote(s) cite sources not read in this task`,
         );
+      // Grounding would reject these anyway; dropping them keeps the claim's usable quotes.
+      const evidence = read.filter((e) => verification.quoteShapeProblem(e.quote) === null);
+      if (evidence.length < read.length)
+        dropped.push(`claims.${String(i)}: ${String(read.length - evidence.length)} quote(s) too short to ground`);
       return evidence.length > 0 ? [{ ...claim, evidence }] : [];
     });
     return claims.length > 0 ? { value: { claims }, dropped } : null;
@@ -132,6 +137,9 @@ export const discoveryRole: AgentRole<DiscoveryInput, DiscoveryOutput> = {
             `claims.${String(i)}.evidence.${String(j)}.sourceId: ${e.sourceId} is not a source you read in this task`,
           );
         }
+        // The same rule grounding applies, checked now so the model can fix the quote instead of losing the claim.
+        const shape = verification.quoteShapeProblem(e.quote);
+        if (shape) problems.push(`claims.${String(i)}.evidence.${String(j)}.quote: ${shape}`);
       });
     });
     const wanted = input.criteria.maxCompanies;

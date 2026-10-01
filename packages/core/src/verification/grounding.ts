@@ -45,6 +45,32 @@ export function unwrapQuote(quote: string): string {
   return q;
 }
 
+/** The parts of a quote between ellipses, normalised; one part for a quote without an ellipsis. */
+function segmentsOf(quote: string): string[] {
+  return quote
+    .split(new RegExp(`\\.\\.\\.|${ELLIPSIS}`))
+    .map((s) => normalizeForMatch(s).text.trim())
+    .filter((s) => s.length > 0);
+}
+
+/**
+ * What is wrong with a quote whatever the source says: too few words, or elided segments too short or too
+ * many to ground. The agent loop checks this before accepting a result, so the model can fix the quote
+ * instead of losing the claim at grounding. Null when the shape is fine.
+ */
+export function quoteShapeProblem(rawQuote: string): string | null {
+  const quote = unwrapQuote(rawQuote);
+  const count = words(quote).length;
+  if (count < MIN_QUOTE_WORDS)
+    return `has ${String(count)} word(s); quote at least ${String(MIN_QUOTE_WORDS)} words, a whole sentence where possible`;
+  const segments = segmentsOf(quote);
+  if (segments.length > MAX_SEGMENTS)
+    return `has ${String(segments.length)} parts; join at most ${String(MAX_SEGMENTS)}`;
+  if (segments.length > 1 && segments.some((s) => Array.from(s).length < MIN_SEGMENT_CHARS))
+    return `has a part between "..." shorter than ${String(MIN_SEGMENT_CHARS)} characters; quote whole phrases`;
+  return null;
+}
+
 export function groundQuote(sourceText: string, rawQuote: string): GroundingOutcome {
   const quote = unwrapQuote(rawQuote);
   if (words(quote).length < MIN_QUOTE_WORDS) return { result: 'not_found', spans: [], problem: 'QUOTE_TOO_SHORT' };
@@ -61,10 +87,7 @@ export function groundQuote(sourceText: string, rawQuote: string): GroundingOutc
     end: (source.map[from + length - 1] ?? 0) + 1,
   });
 
-  const segments = quote
-    .split(new RegExp(`\\.\\.\\.|${ELLIPSIS}`))
-    .map((s) => normalizeForMatch(s).text.trim())
-    .filter((s) => s.length > 0);
+  const segments = segmentsOf(quote);
   if (segments.length === 1) {
     const needle = segments[0] ?? '';
     const at = indexOfNormalized(source, needle);

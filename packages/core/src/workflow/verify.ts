@@ -19,6 +19,7 @@ import { toJson, type WorkspaceTransaction } from '@aoc/db';
 import { findConflicts } from '../verification/consistency';
 import { outsideCriteria } from '../verification/criteria';
 import { contextAround, type Span } from '../verification/grounding';
+import { judgeStatement } from '../verification/statement';
 import {
   computeConfidence,
   evaluatePolicy,
@@ -160,7 +161,7 @@ export function judgeItems(company: CompanyForVerification): JudgeItem[] {
         .filter((e) => e.grounding !== 'not_found' && e.judge === null)
         .map((e) => ({
           evidenceId: e.id,
-          statement: c.statement,
+          statement: judgeStatement(company.name, c.assertion),
           quote: e.quote,
           context: contextAround(e.source.text, e.spans[0] ?? { start: 0, end: 0 }, 300),
         })),

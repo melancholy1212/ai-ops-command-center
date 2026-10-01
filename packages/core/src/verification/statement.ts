@@ -27,7 +27,20 @@ export function countryName(code: string): string {
 const list = (items: readonly string[]) =>
   items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items.at(-1) ?? ''}`;
 
-export function renderStatement(companyName: string, assertion: ClaimAssertion): string {
+/**
+ * The statement the judge checks a quote against. A funding round leaves out its date: articles rarely state
+ * it, and code checks it against the source's publication date instead (policy.ts, DATE_UNVERIFIED).
+ */
+export function judgeStatement(companyName: string, assertion: ClaimAssertion): string {
+  if (assertion.attribute !== 'company.funding_round') return renderStatement(companyName, assertion);
+  return renderStatement(companyName, assertion, { withDate: false });
+}
+
+export function renderStatement(
+  companyName: string,
+  assertion: ClaimAssertion,
+  options: { withDate: boolean } = { withDate: true },
+): string {
   const name = companyName.trim();
   let text: string;
   switch (assertion.attribute) {
@@ -56,7 +69,8 @@ export function renderStatement(companyName: string, assertion: ClaimAssertion):
           ? `${v.currency} ${v.amount.toLocaleString('en-US')}`
           : 'an undisclosed amount';
       const lead = v.leadInvestors.length > 0 ? `, led by ${list(v.leadInvestors)}` : '';
-      text = `${name} announced a ${STAGE_NAMES[v.stage]} round of ${amount} on ${v.announcedOn}${lead}.`;
+      const when = options.withDate ? ` on ${v.announcedOn}` : '';
+      text = `${name} announced a ${STAGE_NAMES[v.stage]} round of ${amount}${when}${lead}.`;
       break;
     }
     case 'company.employee_count':

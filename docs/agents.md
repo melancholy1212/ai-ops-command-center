@@ -58,8 +58,10 @@ Added in Phase 4, from live runs through the UI:
 - **Advisory checks** can send a result back at most once, and only with turns and tool calls left: discovery sends
   back an empty result when search found results but no page was read, and a result short of the brief's company count
   while search offered results that were not opened. They never turn an honest result into a failure.
+- **Quote shape.** Discovery checks every quote with the grounding rules that need no source text (at least 4 words;
+  parts between "..." at least 20 characters), so a short quote becomes a repair, not a lost claim.
 - **Salvage.** When no repair turn is left, a role can keep the valid part of a result: discovery drops claims and
-  quotes that cite sources not read in the execution, records every drop, and still fails if nothing valid remains
+  quotes that cite sources not read in the execution, and quotes too short to ground, records every drop, and still fails if nothing valid remains
   (a failed result is never passed off as an empty one).
 
 Every turn is persisted as it happens (`agent_messages`, `llm_calls`, `tool_calls`). Conversations are append-only:

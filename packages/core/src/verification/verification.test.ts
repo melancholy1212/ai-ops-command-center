@@ -5,13 +5,16 @@ import {
   claimFingerprint,
   computeConfidence,
   contextAround,
+  dateFitsPublication,
   evaluatePolicy,
   findConflicts,
   groundQuote,
   independentGroups,
+  judgeStatement,
   normalizeCompanyName,
   normalizeForMatch,
   outsideCriteria,
+  quoteShapeProblem,
   registrableDomainOf,
   renderStatement,
   sentenceAround,
@@ -275,7 +278,8 @@ describe('policy v1', () => {
       evidence({ selfPublished: true, registrableDomain: 'northwind.example' }),
     ]);
     expect(computeConfidence('verified', outcome, now)).toMatchObject({ score: 0.9, level: 'high' });
-    const old = evaluatePolicy(round(), [
+    // An old article about a round of its own time: the date fits, so only age, injection and partial count.
+    const old = evaluatePolicy(round({ announcedOn: '2023-12-28' }), [
       evidence({
         publishedAt: new Date('2024-01-01T00:00:00Z'),
         flags: ['suspected_prompt_injection'],
@@ -287,6 +291,57 @@ describe('policy v1', () => {
     expect(low.level).toBe('low');
     expect(low.reasons.map((r) => r.code)).toEqual(['SOURCE_TOO_OLD', 'SUSPECTED_INJECTION_SOURCE']);
     expect(computeConfidence('contested', outcome, now)).toMatchObject({ score: 0.45, level: 'low' });
+  });
+});
+
+describe('announcement dates', () => {
+  it('fit a publication on the day or up to 30 days after, never before', () => {
+    const published = new Date('2026-06-02T07:30:00Z');
+    expect(dateFitsPublication('2026-06-02', published)).toBe(true);
+    expect(dateFitsPublication('2026-06-03', published)).toBe(true); // time zones
+    expect(dateFitsPublication('2026-05-03', published)).toBe(true);
+    expect(dateFitsPublication('2026-05-02', published)).toBe(false);
+    expect(dateFitsPublication('2026-06-04', published)).toBe(false);
+    expect(dateFitsPublication('2026-06-02', null)).toBe(false);
+  });
+
+  it('are checked by code, not the judge: an unbacked date is recorded and costs confidence', () => {
+    const now = new Date('2026-09-30T12:00:00Z');
+    const backed = evaluatePolicy(round(), [evidence()]);
+    expect([backed.dateUnverified, backed.reasons.map((r) => r.code)]).toEqual([false, ['SINGLE_SOURCE']]);
+    const unbacked = evaluatePolicy(round({ announcedOn: '2026-08-01' }), [evidence()]);
+    expect(unbacked.status).toBe('probable');
+    expect(unbacked.reasons.map((r) => r.code)).toEqual(['SINGLE_SOURCE', 'DATE_UNVERIFIED']);
+    expect(computeConfidence('probable', backed, now).score).toBe(0.55);
+    expect(computeConfidence('probable', unbacked, now).score).toBe(0.45);
+    // Other attributes have no date to check.
+    const hq: ClaimAssertion = { attribute: 'company.hq_country', value: { country: 'SE' } };
+    expect(evaluatePolicy(hq, [evidence({ publishedAt: null })]).dateUnverified).toBe(false);
+  });
+
+  it('are left out of what the judge reads, and kept in what people read', () => {
+    expect(judgeStatement('Oplane', round())).toBe(
+      'Oplane announced a seed round of EUR 4,000,000, led by Nordic Seed Partners.',
+    );
+    expect(renderStatement('Oplane', round())).toBe(
+      'Oplane announced a seed round of EUR 4,000,000 on 2026-03-12, led by Nordic Seed Partners.',
+    );
+    const hq: ClaimAssertion = { attribute: 'company.hq_country', value: { country: 'FI' } };
+    expect(judgeStatement('Rotomate', hq)).toBe(renderStatement('Rotomate', hq));
+  });
+});
+
+describe('quote shape', () => {
+  it('names what grounding would reject, before any source is consulted', () => {
+    expect(quoteShapeProblem(`Stockholm${NBH}based Scape...`)).toMatch(/^has 3 word\(s\)/);
+    expect(quoteShapeProblem('"Northwind"')).toMatch(/^has 1 word/);
+    expect(quoteShapeProblem('Helsinki-based industrial AI startup Rotomate...')).toBeNull();
+    expect(quoteShapeProblem(`Northwind Climate raised money ... in March`)).toMatch(/shorter than 20 characters/);
+    expect(
+      quoteShapeProblem(`Malmo-based AI security startup Oplane ${ELL} is headquartered in Malmo, Sweden.`),
+    ).toBeNull();
+    // Whatever the shape check accepts, grounding does not reject for shape.
+    expect(groundQuote('Northwind', 'Stockholm based Scape').problem).toBe('QUOTE_TOO_SHORT');
   });
 });
 

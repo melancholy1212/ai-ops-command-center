@@ -344,6 +344,11 @@ describe('applyVerification', () => {
     const items = judgeItems(loaded);
     // The too-short sector quote was rejected at grounding and never reaches the judge.
     expect(items).toHaveLength(4);
+    // The judge never sees a round's date; code checks it.
+    expect(items.filter((i) => i.statement.includes('round')).map((i) => / on \d{4}-/.test(i.statement))).toEqual([
+      false,
+      false,
+    ]);
     const verdictFor = (statementPart: string) => items.find((i) => i.statement.includes(statementPart))!.evidenceId;
     const summary = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
       applyVerification(tx, { run: ctx.run, taskId: ctx.taskId, criteria, now: ctx.now }, loaded, [
@@ -390,6 +395,11 @@ describe('applyVerification', () => {
       'conflicting',
     ]);
     expect(byPart('EUR 4,500,000').status).toBe('contested');
+    // Dates are checked against publication dates by code: the release appeared the day of the round; the
+    // article is dated three days before the round it supposedly reports.
+    const codes = (part: string) => byPart(part).verification.reasons.map((r) => r.code);
+    expect(codes('EUR 4,000,000')).not.toContain('DATE_UNVERIFIED');
+    expect(codes('EUR 4,500,000')).toContain('DATE_UNVERIFIED');
     // The company's own press release is authoritative for its headquarters... but one source is probable for hq.
     expect(byPart('headquartered').status).toBe('probable');
     expect(byPart('headquartered').confidence).toBe('medium');

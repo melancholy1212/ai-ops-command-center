@@ -90,7 +90,7 @@ not for claims about its competitors.
 ## Verification
 
 Implemented in Phase 4: `packages/core/src/verification` (normalisation with an offset map, grounding, value-in-quote,
-independence, policy v1, confidence, conflicts) and `packages/core/src/workflow/verify.ts`, which applies them in the
+independence, policy v2, confidence, conflicts) and `packages/core/src/workflow/verify.ts`, which applies them in the
 `verify_entity` completion transaction. Only the judge's verdict comes from a model.
 
 Per claim, in order. Everything except step 3 is deterministic code.
@@ -103,14 +103,18 @@ Per claim, in order. Everything except step 3 is deterministic code.
    - `exact` if found verbatim; `normalized` if found after normalisation; `elided_segments` if the quote uses `...` or `…`
      and every segment (≥ 20 characters) appears in order within 1,500 characters; else `not_found` → claim `rejected`
      with `QUOTE_NOT_FOUND`.
-   - Quotes shorter than 4 words are rejected (`QUOTE_TOO_SHORT`): "Tallinn" is a match, not evidence.
+   - Quotes shorter than 4 words are rejected (`QUOTE_TOO_SHORT`): "Tallinn" is a match, not evidence. The agent loop
+     applies the same shape rules before it accepts a result, so the model can fix a short quote instead of losing
+     the claim. A live run lost a company's headquarters to "Stockholm‑based Scape...", 3 words.
    - **Value in quote:** where the attribute has a detectable surface form (amounts, currencies, stages, dates, years,
      country and city names, person name with title), the value must appear in the quote or its immediate sentence,
      else `VALUE_NOT_IN_QUOTE`.
 
    These rules come from the 2026-09-30 compatibility test: gpt-oss-120b wrote "co‑founder" with a non-breaking hyphen
    (a naive check would have rejected a verbatim quote), and the Qwen models shortened quotes with "...".
-3. **Judge:** the verifier model answers "does this quote support this claim?" for grounded quotes only.
+3. **Judge:** the verifier model answers "does this quote support this claim?" for grounded quotes only. For a
+   funding round, the statement it reads leaves out the date (policy v2). Articles rarely state the date: it comes
+   from the publication date, so the judge marked every round `partially_supports`.
 4. **Policy:** per attribute, versioned (table below). Independence: different registrable domains **and** not
    near-duplicate text (5-word-shingle Jaccard ≥ 0.6 around the span counts as syndication, so twenty copies of one
    press release count once).
@@ -121,7 +125,11 @@ Per claim, in order. Everything except step 3 is deterministic code.
    company with `OUTSIDE_CRITERIA`.
 8. **Coverage:** required attributes with no verified or probable claim become research gaps.
 
-### Policy v1
+### Policy v2
+
+Version 2 (2026-10-01) adds the date check for funding rounds: the claimed announcement date must fall on, or up to
+30 days before, the publication date of a supporting source (one day of tolerance for time zones). Otherwise the
+claim records `DATE_UNVERIFIED` and loses 0.10 confidence. The date still decides the funding-window criterion.
 
 | Attribute | Verified | Probable | Other rules |
 |---|---|---|---|
@@ -136,7 +144,7 @@ Per claim, in order. Everything except step 3 is deterministic code.
 
 Base score by status: verified 0.80, probable 0.55, contested 0.35. Adjustments: +0.10 with a tier-A source; +0.05
 per additional independent source (max +0.10); −0.10 if the newest source is older than 12 months; −0.10 if any
-judge verdict is `partially_supports`; −0.20 if a supporting source is flagged `suspected_prompt_injection`. Clamped
+judge verdict is `partially_supports`; −0.10 if a funding round's date is `DATE_UNVERIFIED`; −0.20 if a supporting source is flagged `suspected_prompt_injection`. Clamped
 to [0, 1]. Bands: ≥ 0.75 high, ≥ 0.50 medium, otherwise low. Every adjustment is written to `verification.reasons`,
 so the UI can say why. Policy id and version are stored on the claim; changing the policy is a new version, and old
 claims keep the policy they were judged under.
