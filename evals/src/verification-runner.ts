@@ -37,12 +37,7 @@ import { ToolFixtures, type CaseClaim, type VerificationCase } from './case';
 import { fixtureFetcher, fixtureSearch } from './fixtures';
 import { collectTrace, type CaseResult } from './metrics';
 import { liveProviders, readJson, type RunOptions } from './runner';
-import {
-  collectVerificationMetrics,
-  scoreVerification,
-  SCRIPTED_DISCOVERY_ACCOUNT,
-  type VerificationMetrics,
-} from './verification-metrics';
+import { collectVerificationMetrics, scoreVerification, SCRIPTED_DISCOVERY_ACCOUNT } from './verification-metrics';
 
 const NO_SOURCE = '00000000-0000-4000-8000-000000000000';
 const usage = { inputTokens: 1, outputTokens: 1, reasoningTokens: null, cacheReadTokens: null, cacheWriteTokens: null };
@@ -248,8 +243,7 @@ export async function runVerificationCase(evalCase: VerificationCase, options: R
     stopScheduler = null;
 
     const metrics = await collectVerificationMetrics(harness.admin, runId);
-    const baseline =
-      options.baseline && 'kind' in options.baseline ? (options.baseline as VerificationMetrics) : undefined;
+    const baseline = options.baseline && 'kind' in options.baseline ? options.baseline : undefined;
     const failures = scoreVerification(evalCase, metrics, baseline);
     if (options.record && recordings.length > 0)
       await saveRecordings(modelPath, { version: 1, synthetic: evalCase.synthetic, recordings });
