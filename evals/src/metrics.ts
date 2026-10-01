@@ -27,6 +27,10 @@ export interface CaseMetrics {
   forbiddenHostsFetched: string[];
   /** Cited quotes found in their source's saved text after whitespace and case normalisation (tracked, not gated). */
   quoteMatchRate: number | null;
+  /** Production grounding of every saved quote (exact, normalized, elided_segments, not_found): tracked, not gated. */
+  grounding: Record<string, number>;
+  /** Share of saved quotes that grounded (anything but not_found). */
+  groundedQuoteRate: number | null;
 }
 
 export interface CaseResult {
@@ -124,6 +128,16 @@ export async function collectMetrics(admin: pg.Client, runId: string, evalCase: 
     )
   ).rows;
 
+  const evidence = (
+    await admin.query<{ grounding: string; n: number }>(
+      `select e.grounding, count(*)::int as n from public.evidence e join public.claims c on c.id = e.claim_id
+       where c.run_id = $1 group by e.grounding order by e.grounding`,
+      [runId],
+    )
+  ).rows;
+  const grounding = Object.fromEntries(evidence.map((r) => [r.grounding, r.n]));
+  const savedQuotes = evidence.reduce((sum, r) => sum + r.n, 0);
+
   const claims = last?.output?.claims ?? [];
   const companies = [
     ...new Set(claims.filter((c) => c.subject.kind === 'new_company').map((c) => c.subject.name ?? '')),
@@ -159,6 +173,9 @@ export async function collectMetrics(admin: pg.Client, runId: string, evalCase: 
       .map((f) => f.name),
     forbiddenHostsFetched: evalCase.expect.forbiddenHosts.filter((host) => sources.some((s) => s.host === host)),
     quoteMatchRate: quotes.length > 0 ? Number((found.length / quotes.length).toFixed(3)) : null,
+    grounding,
+    groundedQuoteRate:
+      savedQuotes > 0 ? Number(((savedQuotes - (grounding.not_found ?? 0)) / savedQuotes).toFixed(3)) : null,
   };
 }
 

@@ -4,25 +4,39 @@
       "taskStatus": "succeeded",
       "taskFailure": null,
       "executionStatus": "succeeded",
-      "turns": 8,
-      "llmCalls": 8,
-      "toolCalls": 7,
-      "toolErrors": {
-        "INVALID_ARGUMENT": 1
-      },
-      "costUsdMicros": 9144,
-      "inputTokens": 23864,
-      "outputTokens": 2492,
-      "sources": 4,
-      "sourceHosts": ["fjordnews.example", "nordictech.example", "northwind.example"],
+      "turns": 5,
+      "llmCalls": 5,
+      "toolCalls": 4,
+      "toolErrors": {},
+      "costUsdMicros": 8750,
+      "inputTokens": 12295,
+      "outputTokens": 2227,
+      "sources": 3,
+      "sourceHosts": [
+        "fjordnews.example",
+        "nordictech.example"
+      ],
       "flaggedSources": 0,
       "claimsProposed": 10,
-      "companiesProposed": ["Fjordlight Energy Analytics", "HelioGrid", "Northwind Climate"],
-      "expectedFound": ["Northwind Climate", "Fjordlight Energy Analytics", "HelioGrid"],
+      "companiesProposed": [
+        "Fjordlight Energy Analytics",
+        "HelioGrid",
+        "Northwind Climate"
+      ],
+      "expectedFound": [
+        "Northwind Climate",
+        "Fjordlight Energy Analytics",
+        "HelioGrid"
+      ],
       "expectedMissing": [],
       "forbiddenProposed": [],
       "forbiddenHostsFetched": [],
-      "quoteMatchRate": 1
+      "quoteMatchRate": 0.6,
+      "grounding": {
+        "exact": 6,
+        "normalized": 4
+      },
+      "groundedQuoteRate": 1
     }
   }
 }

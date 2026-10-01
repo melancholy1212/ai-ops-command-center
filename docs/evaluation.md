@@ -131,6 +131,17 @@ the brief. Code now paces search and salvages the last turn ([agents.md](agents.
 reasoning and 20 turns found a real candidate. Medium is the next setting to measure, as a live case with a turn and
 cost ceiling. It was not kept, because the recordings could not be redone when the provider credit ran out.
 
+Three more live runs on 2026-10-01 (new credit): one at medium reasoning took 20 turns and 528k tokens, because search
+snippets piled up in the history, and found nothing. With repeats refused, the pause lifted only by new pages, and
+snippets trimmed, a low-reasoning run peaked at 24k input tokens per call instead of 50k. All three came back empty:
+the pages search offered were roundups and listicles, and the model opened ones unrelated to the brief. The open
+problem is now retrieval and judgment, not loop control: query strategy, sources that list funding rounds, and a
+stronger model on the agent route.
+
+Metrics now include the production grounding of every saved quote (`grounding`, `groundedQuoteRate`). The older
+`quoteMatchRate` is a loose substring check that undercounts. The re-recorded synthetic case shows 0.6 on it while all
+10 quotes ground (6 exact, 4 normalized).
+
 ### Planned cases
 
 | Case | Checks |

@@ -3,23 +3,23 @@
   "synthetic": true,
   "recordings": [
     {
-      "hash": "0bc9bd67046b9641e3489bb0088316bfd7333559ef0718a4299c904629e1e4fc",
-      "recordedAt": "2026-09-30T14:09:01.925Z",
+      "hash": "044aae38ecc144f1729669622502a6fadc6894d6fcbb808ffcacb3909a46581a",
+      "recordedAt": "2026-10-01T05:26:06.411Z",
       "providerAccount": "earthruntime",
       "model": "gpt-oss-120b",
       "response": {
         "text": null,
         "toolCalls": [
           {
-            "id": "chatcmpl-tool-a5ff1dc3bdd93a90",
+            "id": "chatcmpl-tool-a4501888b7857583",
             "name": "fetch_page",
             "argumentsJson": "{\"url\": \"https://fjordnews.example/2026/05/20/fjordlight-energy-analytics-seed\"}"
           }
         ],
         "stopReason": "tool_use",
         "usage": {
-          "inputTokens": 2661,
-          "outputTokens": 49,
+          "inputTokens": 2519,
+          "outputTokens": 72,
           "reasoningTokens": null,
           "cacheReadTokens": null,
           "cacheWriteTokens": null
@@ -34,7 +34,7 @@
                 "arguments": "{\"url\": \"https://fjordnews.example/2026/05/20/fjordlight-energy-analytics-seed\"}",
                 "name": "fetch_page"
               },
-              "id": "chatcmpl-tool-a5ff1dc3bdd93a90",
+              "id": "chatcmpl-tool-a4501888b7857583",
               "type": "function"
             }
           ]
@@ -42,62 +42,23 @@
       }
     },
     {
-      "hash": "119652edaa7d6e74abc1d95398c15f04119e9edcf76a05b08e5e1fc52b2abb66",
-      "recordedAt": "2026-09-30T14:09:05.444Z",
+      "hash": "30e626fa4d3c42b11979d8fa58a401ef9dc4eda7e4fc16ac7cc3cad140d9a694",
+      "recordedAt": "2026-10-01T05:26:07.116Z",
       "providerAccount": "earthruntime",
       "model": "gpt-oss-120b",
       "response": {
         "text": null,
         "toolCalls": [
           {
-            "id": "chatcmpl-tool-8c07eee861da86bb",
-            "name": "fetch_page",
-            "argumentsJson": "{\"url\": \"https://northwind.example/\"}"
-          }
-        ],
-        "stopReason": "tool_use",
-        "usage": {
-          "inputTokens": 3709,
-          "outputTokens": 66,
-          "reasoningTokens": null,
-          "cacheReadTokens": null,
-          "cacheWriteTokens": null
-        },
-        "cacheStatus": "not_supported",
-        "providerContent": {
-          "role": "assistant",
-          "content": null,
-          "tool_calls": [
-            {
-              "function": {
-                "arguments": "{\"url\": \"https://northwind.example/\"}",
-                "name": "fetch_page"
-              },
-              "id": "chatcmpl-tool-8c07eee861da86bb",
-              "type": "function"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "hash": "4a47123a808391e469299337bb57e34c0290709142fb22040e8547ca70015dd1",
-      "recordedAt": "2026-09-30T14:09:03.153Z",
-      "providerAccount": "earthruntime",
-      "model": "gpt-oss-120b",
-      "response": {
-        "text": null,
-        "toolCalls": [
-          {
-            "id": "chatcmpl-tool-95febe813d4ce62d",
+            "id": "chatcmpl-tool-91ef9d97b95b439c",
             "name": "fetch_page",
             "argumentsJson": "{\"url\": \"https://nordictech.example/2026/06/03/heliogrid-seed\"}"
           }
         ],
         "stopReason": "tool_use",
         "usage": {
-          "inputTokens": 2963,
-          "outputTokens": 186,
+          "inputTokens": 2823,
+          "outputTokens": 49,
           "reasoningTokens": null,
           "cacheReadTokens": null,
           "cacheWriteTokens": null
@@ -112,7 +73,7 @@
                 "arguments": "{\"url\": \"https://nordictech.example/2026/06/03/heliogrid-seed\"}",
                 "name": "fetch_page"
               },
-              "id": "chatcmpl-tool-95febe813d4ce62d",
+              "id": "chatcmpl-tool-91ef9d97b95b439c",
               "type": "function"
             }
           ]
@@ -121,14 +82,14 @@
     },
     {
       "hash": "6c6e4e80b2278fd42086acf89f8fee043a420e07c1464dbe7b9a284bde2d120a",
-      "recordedAt": "2026-09-30T14:09:00.378Z",
+      "recordedAt": "2026-10-01T05:26:04.744Z",
       "providerAccount": "earthruntime",
       "model": "gpt-oss-120b",
       "response": {
         "text": null,
         "toolCalls": [
           {
-            "id": "chatcmpl-tool-8a54c879e1722dbd",
+            "id": "chatcmpl-tool-820085721bc6239c",
             "name": "web_search",
             "argumentsJson": "{\"query\": \"seed round climate software Sweden 2026\", \"mode\": \"news\", \"recencyDays\": 400, \"maxResults\": 10}"
           }
@@ -151,7 +112,7 @@
                 "arguments": "{\"query\": \"seed round climate software Sweden 2026\", \"mode\": \"news\", \"recencyDays\": 400, \"maxResults\": 10}",
                 "name": "web_search"
               },
-              "id": "chatcmpl-tool-8a54c879e1722dbd",
+              "id": "chatcmpl-tool-820085721bc6239c",
               "type": "function"
             }
           ]
@@ -159,22 +120,22 @@
       }
     },
     {
-      "hash": "aedb0397c55114efd8585a5a6aa729b331707dcf533bfb9740beb5a3b6d8960c",
-      "recordedAt": "2026-09-30T14:09:01.226Z",
+      "hash": "90d74f2ad48b1aa861e7e0b4846281af84a8c5590b98cc3d502da5c0529945e9",
+      "recordedAt": "2026-10-01T05:26:05.592Z",
       "providerAccount": "earthruntime",
       "model": "gpt-oss-120b",
       "response": {
         "text": null,
         "toolCalls": [
           {
-            "id": "chatcmpl-tool-923cdf6e7c2e4e1e",
+            "id": "chatcmpl-tool-95dfb3cadea5cd83",
             "name": "fetch_page",
             "argumentsJson": "{\"url\": \"https://nordictech.example/2026/03/12/northwind-climate-raises-seed\"}"
           }
         ],
         "stopReason": "tool_use",
         "usage": {
-          "inputTokens": 2271,
+          "inputTokens": 2126,
           "outputTokens": 79,
           "reasoningTokens": null,
           "cacheReadTokens": null,
@@ -190,7 +151,7 @@
                 "arguments": "{\"url\": \"https://nordictech.example/2026/03/12/northwind-climate-raises-seed\"}",
                 "name": "fetch_page"
               },
-              "id": "chatcmpl-tool-923cdf6e7c2e4e1e",
+              "id": "chatcmpl-tool-95dfb3cadea5cd83",
               "type": "function"
             }
           ]
@@ -198,101 +159,23 @@
       }
     },
     {
-      "hash": "bb340f8f4efce09432eada4b80cdca2b980fcb91c53bdbc7726425d84d488aec",
-      "recordedAt": "2026-09-30T14:09:04.015Z",
+      "hash": "957113b326421295d9ccc31d7c9463256a1a7a3eb33822e0afc4c04ca11433b3",
+      "recordedAt": "2026-10-01T05:26:15.295Z",
       "providerAccount": "earthruntime",
       "model": "gpt-oss-120b",
       "response": {
         "text": null,
         "toolCalls": [
           {
-            "id": "chatcmpl-tool-a3458a5a7ef59bf2",
-            "name": "get_source",
-            "argumentsJson": "{\"sourceId\": \"<id:5>\", \"offset\": 0, \"maxChars\": 200}"
-          }
-        ],
-        "stopReason": "tool_use",
-        "usage": {
-          "inputTokens": 3261,
-          "outputTokens": 96,
-          "reasoningTokens": null,
-          "cacheReadTokens": null,
-          "cacheWriteTokens": null
-        },
-        "cacheStatus": "not_supported",
-        "providerContent": {
-          "role": "assistant",
-          "content": null,
-          "tool_calls": [
-            {
-              "function": {
-                "arguments": "{\"sourceId\": \"<id:5>\", \"offset\": 0, \"maxChars\": 200}",
-                "name": "get_source"
-              },
-              "id": "chatcmpl-tool-a3458a5a7ef59bf2",
-              "type": "function"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "hash": "be5e4b2de1ba6070b24acd92ad4fbd2c71ac37b268d1660948788c123bcf06ae",
-      "recordedAt": "2026-09-30T14:09:04.735Z",
-      "providerAccount": "earthruntime",
-      "model": "gpt-oss-120b",
-      "response": {
-        "text": null,
-        "toolCalls": [
-          {
-            "id": "chatcmpl-tool-bee2ac78ad88da9f",
-            "name": "get_source",
-            "argumentsJson": "{\"sourceId\": \"<id:5>\", \"offset\": 0, \"maxChars\": 1200}"
-          }
-        ],
-        "stopReason": "tool_use",
-        "usage": {
-          "inputTokens": 3356,
-          "outputTokens": 61,
-          "reasoningTokens": null,
-          "cacheReadTokens": null,
-          "cacheWriteTokens": null
-        },
-        "cacheStatus": "not_supported",
-        "providerContent": {
-          "role": "assistant",
-          "content": null,
-          "tool_calls": [
-            {
-              "function": {
-                "arguments": "{\"sourceId\": \"<id:5>\", \"offset\": 0, \"maxChars\": 1200}",
-                "name": "get_source"
-              },
-              "id": "chatcmpl-tool-bee2ac78ad88da9f",
-              "type": "function"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "hash": "f154ed34e14dd9f6f840ebd787fa654318a8e77bbf4dc2852d1a28840d7e5f2c",
-      "recordedAt": "2026-09-30T14:09:13.317Z",
-      "providerAccount": "earthruntime",
-      "model": "gpt-oss-120b",
-      "response": {
-        "text": null,
-        "toolCalls": [
-          {
-            "id": "chatcmpl-tool-ad268e36b81f0415",
+            "id": "chatcmpl-tool-b37893fa546d6e3c",
             "name": "submit_result",
-            "argumentsJson": "{\"claims\": [{\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": \"northwind.example\"}, \"assertion\": {\"attribute\": \"company.website\", \"value\": {\"url\": \"https://northwind.example/\"}}, \"rawValue\": \"https://northwind.example/\", \"evidence\": [{\"sourceId\": \"<id:5>\", \"quote\": \"More information is available on the company website.\"}, {\"sourceId\": \"<id:9>\", \"quote\": \"Northwind Climate AB is headquartered in Stockholm, Sweden.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": \"northwind.example\"}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"SE\"}}, \"rawValue\": \"Sweden\", \"evidence\": [{\"sourceId\": \"<id:9>\", \"quote\": \"Northwind Climate AB is headquartered in Stockholm, Sweden.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": \"northwind.example\"}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"carbon accounting\"]}}, \"rawValue\": \"carbon accounting software\", \"evidence\": [{\"sourceId\": \"<id:5>\", \"quote\": \"builds carbon accounting software for mid-sized manufacturers.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": \"northwind.example\"}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 4000000, \"currency\": \"EUR\", \"announcedOn\": \"2026-03-12\", \"leadInvestors\": [\"Nordic Seed Partners\"], \"otherInvestors\": [\"Aurora Angels\"]}}, \"rawValue\": \"EUR 4 million seed round\", \"evidence\": [{\"sourceId\": \"<id:5>\", \"quote\": \"Stockholm-based Northwind Climate has raised a EUR 4 million seed round led by Nordic Seed Partners, with participation from Aurora Angels.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"NO\"}}, \"rawValue\": \"Oslo, Norway\", \"evidence\": [{\"sourceId\": \"<id:7>\", \"quote\": \"Oslo startup Fjordlight Energy Analytics has closed a NOK 30 million seed round led by Fjord Ventures.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"energy analytics\"]}}, \"rawValue\": \"software forecasts energy use in commercial buildings\", \"evidence\": [{\"sourceId\": \"<id:7>\", \"quote\": \"Fjordlight's software forecasts energy use in commercial buildings so that owners can cut emissions and costs.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 30000000, \"currency\": \"NOK\", \"announcedOn\": \"2026-05-20\", \"leadInvestors\": [\"Fjord Ventures\"], \"otherInvestors\": []}}, \"rawValue\": \"NOK 30 million seed round\", \"evidence\": [{\"sourceId\": \"<id:7>\", \"quote\": \"Oslo startup Fjordlight Energy Analytics has closed a NOK 30 million seed round led by Fjord Ventures.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"DK\"}}, \"rawValue\": \"Copenhagen, Denmark\", \"evidence\": [{\"sourceId\": \"<id:8>\", \"quote\": \"Copenhagen-based HelioGrid has raised DKK 25 million in seed funding from Oresund Ventures.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"energy analytics\"]}}, \"rawValue\": \"software that schedules battery storage to match solar generation for housing associations\", \"evidence\": [{\"sourceId\": \"<id:8>\", \"quote\": \"HelioGrid develops software that schedules battery storage to match solar generation for housing associations.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 25000000, \"currency\": \"DKK\", \"announcedOn\": \"2026-06-03\", \"leadInvestors\": [\"Oresund Ventures\"], \"otherInvestors\": []}}, \"rawValue\": \"DKK 25 million seed funding\", \"evidence\": [{\"sourceId\": \"<id:8>\", \"quote\": \"Copenhagen-based HelioGrid has raised DKK 25 million in seed funding from Oresund Ventures.\"}]}]}"
+            "argumentsJson": "{\"claims\": [{\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"SE\"}}, \"rawValue\": \"Stockholm-based\", \"evidence\": [{\"sourceId\": \"<id:0>\", \"quote\": \"Stockholm-based Northwind Climate has raised a EUR 4 million seed round...\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.founded_year\", \"value\": {\"year\": 2023}}, \"rawValue\": \"founded in 2023\", \"evidence\": [{\"sourceId\": \"<id:0>\", \"quote\": \"The company, founded in 2023, builds carbon accounting software...\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 4000000, \"currency\": \"EUR\", \"announcedOn\": \"2026-03-12\", \"leadInvestors\": [\"Nordic Seed Partners\"], \"otherInvestors\": [\"Aurora Angels\"]}}, \"rawValue\": \"EUR 4 million seed round\", \"evidence\": [{\"sourceId\": \"<id:0>\", \"quote\": \"Stockholm-based Northwind Climate has raised a EUR 4 million seed round led by Nordic Seed Partners, with participation from Aurora Angels.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"carbon accounting\"]}}, \"rawValue\": \"builds carbon accounting software\", \"evidence\": [{\"sourceId\": \"<id:0>\", \"quote\": \"The company, founded in 2023, builds carbon accounting software for mid-sized manufacturers.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"NO\"}}, \"rawValue\": \"Oslo startup\", \"evidence\": [{\"sourceId\": \"<id:2>\", \"quote\": \"Oslo startup Fjordlight Energy Analytics has closed a NOK 30 million seed round...\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 30000000, \"currency\": \"NOK\", \"announcedOn\": \"2026-05-20\", \"leadInvestors\": [\"Fjord Ventures\"], \"otherInvestors\": []}}, \"rawValue\": \"NOK 30 million seed round\", \"evidence\": [{\"sourceId\": \"<id:2>\", \"quote\": \"Oslo startup Fjordlight Energy Analytics has closed a NOK 30 million seed round led by Fjord Ventures.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"energy analytics\"]}}, \"rawValue\": \"software forecasts energy use in commercial buildings\", \"evidence\": [{\"sourceId\": \"<id:2>\", \"quote\": \"Fjordlight's software forecasts energy use in commercial buildings so that owners can cut emissions and costs.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"DK\"}}, \"rawValue\": \"Copenhagen-based\", \"evidence\": [{\"sourceId\": \"<id:3>\", \"quote\": \"Copenhagen-based HelioGrid has raised DKK 25 million in seed funding...\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 25000000, \"currency\": \"DKK\", \"announcedOn\": \"2026-06-03\", \"leadInvestors\": [\"Oresund Ventures\"], \"otherInvestors\": []}}, \"rawValue\": \"DKK 25 million seed funding\", \"evidence\": [{\"sourceId\": \"<id:3>\", \"quote\": \"Copenhagen-based HelioGrid has raised DKK 25 million in seed funding from Oresund Ventures.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"energy analytics\"]}}, \"rawValue\": \"software that schedules battery storage to match solar generation\", \"evidence\": [{\"sourceId\": \"<id:3>\", \"quote\": \"HelioGrid develops software that schedules battery storage to match solar generation for housing associations.\"}]}]}"
           }
         ],
         "stopReason": "tool_use",
         "usage": {
-          "inputTokens": 3943,
-          "outputTokens": 1891,
+          "inputTokens": 3127,
+          "outputTokens": 1963,
           "reasoningTokens": null,
           "cacheReadTokens": null,
           "cacheWriteTokens": null
@@ -304,10 +187,10 @@
           "tool_calls": [
             {
               "function": {
-                "arguments": "{\"claims\": [{\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": \"northwind.example\"}, \"assertion\": {\"attribute\": \"company.website\", \"value\": {\"url\": \"https://northwind.example/\"}}, \"rawValue\": \"https://northwind.example/\", \"evidence\": [{\"sourceId\": \"<id:5>\", \"quote\": \"More information is available on the company website.\"}, {\"sourceId\": \"<id:9>\", \"quote\": \"Northwind Climate AB is headquartered in Stockholm, Sweden.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": \"northwind.example\"}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"SE\"}}, \"rawValue\": \"Sweden\", \"evidence\": [{\"sourceId\": \"<id:9>\", \"quote\": \"Northwind Climate AB is headquartered in Stockholm, Sweden.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": \"northwind.example\"}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"carbon accounting\"]}}, \"rawValue\": \"carbon accounting software\", \"evidence\": [{\"sourceId\": \"<id:5>\", \"quote\": \"builds carbon accounting software for mid-sized manufacturers.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": \"northwind.example\"}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 4000000, \"currency\": \"EUR\", \"announcedOn\": \"2026-03-12\", \"leadInvestors\": [\"Nordic Seed Partners\"], \"otherInvestors\": [\"Aurora Angels\"]}}, \"rawValue\": \"EUR 4 million seed round\", \"evidence\": [{\"sourceId\": \"<id:5>\", \"quote\": \"Stockholm-based Northwind Climate has raised a EUR 4 million seed round led by Nordic Seed Partners, with participation from Aurora Angels.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"NO\"}}, \"rawValue\": \"Oslo, Norway\", \"evidence\": [{\"sourceId\": \"<id:7>\", \"quote\": \"Oslo startup Fjordlight Energy Analytics has closed a NOK 30 million seed round led by Fjord Ventures.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"energy analytics\"]}}, \"rawValue\": \"software forecasts energy use in commercial buildings\", \"evidence\": [{\"sourceId\": \"<id:7>\", \"quote\": \"Fjordlight's software forecasts energy use in commercial buildings so that owners can cut emissions and costs.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 30000000, \"currency\": \"NOK\", \"announcedOn\": \"2026-05-20\", \"leadInvestors\": [\"Fjord Ventures\"], \"otherInvestors\": []}}, \"rawValue\": \"NOK 30 million seed round\", \"evidence\": [{\"sourceId\": \"<id:7>\", \"quote\": \"Oslo startup Fjordlight Energy Analytics has closed a NOK 30 million seed round led by Fjord Ventures.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"DK\"}}, \"rawValue\": \"Copenhagen, Denmark\", \"evidence\": [{\"sourceId\": \"<id:8>\", \"quote\": \"Copenhagen-based HelioGrid has raised DKK 25 million in seed funding from Oresund Ventures.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"energy analytics\"]}}, \"rawValue\": \"software that schedules battery storage to match solar generation for housing associations\", \"evidence\": [{\"sourceId\": \"<id:8>\", \"quote\": \"HelioGrid develops software that schedules battery storage to match solar generation for housing associations.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 25000000, \"currency\": \"DKK\", \"announcedOn\": \"2026-06-03\", \"leadInvestors\": [\"Oresund Ventures\"], \"otherInvestors\": []}}, \"rawValue\": \"DKK 25 million seed funding\", \"evidence\": [{\"sourceId\": \"<id:8>\", \"quote\": \"Copenhagen-based HelioGrid has raised DKK 25 million in seed funding from Oresund Ventures.\"}]}]}",
+                "arguments": "{\"claims\": [{\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"SE\"}}, \"rawValue\": \"Stockholm-based\", \"evidence\": [{\"sourceId\": \"<id:0>\", \"quote\": \"Stockholm-based Northwind Climate has raised a EUR 4 million seed round...\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.founded_year\", \"value\": {\"year\": 2023}}, \"rawValue\": \"founded in 2023\", \"evidence\": [{\"sourceId\": \"<id:0>\", \"quote\": \"The company, founded in 2023, builds carbon accounting software...\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 4000000, \"currency\": \"EUR\", \"announcedOn\": \"2026-03-12\", \"leadInvestors\": [\"Nordic Seed Partners\"], \"otherInvestors\": [\"Aurora Angels\"]}}, \"rawValue\": \"EUR 4 million seed round\", \"evidence\": [{\"sourceId\": \"<id:0>\", \"quote\": \"Stockholm-based Northwind Climate has raised a EUR 4 million seed round led by Nordic Seed Partners, with participation from Aurora Angels.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Northwind Climate\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"carbon accounting\"]}}, \"rawValue\": \"builds carbon accounting software\", \"evidence\": [{\"sourceId\": \"<id:0>\", \"quote\": \"The company, founded in 2023, builds carbon accounting software for mid-sized manufacturers.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"NO\"}}, \"rawValue\": \"Oslo startup\", \"evidence\": [{\"sourceId\": \"<id:2>\", \"quote\": \"Oslo startup Fjordlight Energy Analytics has closed a NOK 30 million seed round...\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 30000000, \"currency\": \"NOK\", \"announcedOn\": \"2026-05-20\", \"leadInvestors\": [\"Fjord Ventures\"], \"otherInvestors\": []}}, \"rawValue\": \"NOK 30 million seed round\", \"evidence\": [{\"sourceId\": \"<id:2>\", \"quote\": \"Oslo startup Fjordlight Energy Analytics has closed a NOK 30 million seed round led by Fjord Ventures.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"Fjordlight Energy Analytics\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"energy analytics\"]}}, \"rawValue\": \"software forecasts energy use in commercial buildings\", \"evidence\": [{\"sourceId\": \"<id:2>\", \"quote\": \"Fjordlight's software forecasts energy use in commercial buildings so that owners can cut emissions and costs.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.hq_country\", \"value\": {\"country\": \"DK\"}}, \"rawValue\": \"Copenhagen-based\", \"evidence\": [{\"sourceId\": \"<id:3>\", \"quote\": \"Copenhagen-based HelioGrid has raised DKK 25 million in seed funding...\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.funding_round\", \"value\": {\"stage\": \"seed\", \"amount\": 25000000, \"currency\": \"DKK\", \"announcedOn\": \"2026-06-03\", \"leadInvestors\": [\"Oresund Ventures\"], \"otherInvestors\": []}}, \"rawValue\": \"DKK 25 million seed funding\", \"evidence\": [{\"sourceId\": \"<id:3>\", \"quote\": \"Copenhagen-based HelioGrid has raised DKK 25 million in seed funding from Oresund Ventures.\"}]}, {\"subject\": {\"kind\": \"new_company\", \"name\": \"HelioGrid\", \"domainHint\": null}, \"assertion\": {\"attribute\": \"company.sector\", \"value\": {\"tags\": [\"climate software\", \"energy analytics\"]}}, \"rawValue\": \"software that schedules battery storage to match solar generation\", \"evidence\": [{\"sourceId\": \"<id:3>\", \"quote\": \"HelioGrid develops software that schedules battery storage to match solar generation for housing associations.\"}]}]}",
                 "name": "submit_result"
               },
-              "id": "chatcmpl-tool-ad268e36b81f0415",
+              "id": "chatcmpl-tool-b37893fa546d6e3c",
               "type": "function"
             }
           ]

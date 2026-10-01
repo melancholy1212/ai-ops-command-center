@@ -336,6 +336,8 @@ describe('tool loop', () => {
       turn(search('c')),
       turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
       turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+      // 1 of 3 companies with an unopened result: sent back once (advisory); the same result is then accepted.
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
     ]);
     const { result, client, rec } = await run(provider);
     expect(result.ok).toBe(true);
@@ -477,6 +479,137 @@ describe('tool loop', () => {
       { role },
     );
     expect(hopeless.result.ok || hopeless.result.error).toMatchObject({ code: 'AGENT_LIMIT_REACHED' });
+  });
+
+  it('lifts the search pause only for a page not read before', async () => {
+    const provider = earthruntime([
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall('web_search', { query: 'a' })),
+      turn(toolCall('web_search', { query: 'b' })),
+      // The same source again (another chunk): not new, so search stays paused.
+      turn(toolCall('fetch_page', { url: 'https://news.example/a', offset: 40 })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+    ]);
+    const { result } = await run(provider);
+    expect(result.ok).toBe(true);
+    expect(provider.requests[3]?.tools.map((t) => t.name)).not.toContain('web_search');
+    expect(provider.requests[4]?.tools.map((t) => t.name)).not.toContain('web_search');
+  });
+
+  it('refuses an exact repeat of a call that succeeded, without calling the server; failed calls may be repeated', async () => {
+    const client = tools();
+    const original = client.call.bind(client);
+    let failures = 0;
+    client.call = (name, args, id, signal) =>
+      name === 'fetch_page' && failures++ === 0
+        ? Promise.resolve({
+            ok: false,
+            error: { code: 'TIMEOUT', message: 'Timed out.', retryable: true, retryAfterMs: null },
+          })
+        : original(name, args, id, signal);
+    const provider = earthruntime([
+      turn(toolCall('web_search', { query: 'nordic seed', maxResults: 5 })),
+      turn(toolCall('web_search', { maxResults: 5, query: 'nordic seed' })),
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+    ]);
+    const outcome = await runToolLoop({
+      role: discoveryRole,
+      input,
+      router: new LlmRouter({ providers: [provider] }),
+      tools: client,
+      recorder: recorder(),
+      checkBudget: () => Promise.resolve([]),
+      signal: new AbortController().signal,
+    });
+    expect(outcome).toEqual({ claims: [claim()] });
+    // One search reached the server; the failed fetch was tried again (the stub answered the first one).
+    expect(client.received.map((r) => r.name)).toEqual(['web_search', 'fetch_page']);
+    expect(failures).toBe(2);
+    const repeated = provider.requests[2]?.messages.at(-1);
+    expect(repeated?.role === 'tool' && repeated.results[0]?.content).toMatch(/already made this exact call/);
+  });
+
+  it('shows the model short search snippets without internal ids', async () => {
+    const client = tools();
+    client.call = () =>
+      Promise.resolve({
+        ok: true,
+        output: {
+          results: [
+            { url: 'https://news.example/a', title: 'T', snippet: 'é'.repeat(900), rank: 0, discoveredUrlId: 'x' },
+            { url: 'https://news.example/b', title: 'U', snippet: 'short', rank: 1, discoveredUrlId: 'y' },
+          ],
+          provenance: { cached: false },
+        },
+      });
+    const provider = earthruntime([
+      turn(toolCall('web_search', { query: 'q' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [] })),
+    ]);
+    await runToolLoop({
+      role: discoveryRole,
+      input,
+      router: new LlmRouter({ providers: [provider] }),
+      tools: client,
+      recorder: recorder(),
+      checkBudget: () => Promise.resolve([]),
+      signal: new AbortController().signal,
+    }).catch(() => undefined);
+    const message = provider.requests[1]?.messages.at(-1);
+    const shown = JSON.parse(message?.role === 'tool' ? (message.results[0]?.content ?? '') : '{}') as {
+      results: Record<string, unknown>[];
+    };
+    expect(shown.results.map((r) => Array.from(r.snippet as string).length)).toEqual([301, 5]);
+    expect(shown.results[0]).not.toHaveProperty('discoveredUrlId');
+    expect(shown).not.toHaveProperty('provenance');
+  });
+
+  it('sends back a result short of the brief once, while search offered results that were not opened', async () => {
+    const client = tools();
+    const original = client.call.bind(client);
+    client.call = (name, args, id, signal) =>
+      name === 'web_search'
+        ? Promise.resolve({
+            ok: true,
+            output: {
+              results: [
+                { url: 'https://news.example/a', rank: 0 },
+                { url: 'https://news.example/b', rank: 1 },
+              ],
+            },
+          })
+        : original(name, args, id, signal);
+    const script = () => [
+      turn(toolCall('web_search', { query: 'nordic seed' })),
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+    ];
+    const provider = earthruntime(script());
+    const outcome = await runToolLoop({
+      role: discoveryRole,
+      input,
+      router: new LlmRouter({ providers: [provider] }),
+      tools: client,
+      recorder: recorder(),
+      checkBudget: () => Promise.resolve([]),
+      signal: new AbortController().signal,
+    });
+    expect(outcome).toEqual({ claims: [claim()] });
+    const advice = provider.requests[3]?.messages.at(-1);
+    expect(advice?.role === 'tool' && advice.results[0]?.content).toMatch(/claims about 1 of the 3 companies/);
+
+    // Every result opened: nothing to advise, accepted at once.
+    const opened = earthruntime([
+      turn(toolCall('web_search', { query: 'nordic seed' })),
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+    ]);
+    const { result } = await run(opened);
+    expect(result.ok).toBe(true);
+    expect(opened.requests).toHaveLength(3);
   });
 
   it('answers unparseable tool arguments with an error the model can fix', async () => {

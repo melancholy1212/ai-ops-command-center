@@ -47,12 +47,17 @@ before every model call, and running out mid-attempt pauses the run for an exten
 Added in Phase 4, from live runs through the UI:
 - **Pacing.** A role can declare that a tool is withheld after N calls without a successful call of another (not
   offered, refused if called anyway) and the model is told why. Discovery pauses `web_search` after 2 searches without
-  a page read; reading a page restores it. The model had been searching until its turns ran out without opening a
-  single result.
+  a page read; only reading a page not read before restores it (the model had learned to re-read one page to reopen
+  search). The model had been searching until its turns ran out without opening a single result.
+- **No repeats.** An exact repeat of a call that already succeeded (same tool, same arguments) is refused without
+  reaching the server; a failed call may be repeated.
+- **Small history.** Search results reach the model with snippets cut to 300 characters and without internal ids;
+  every later turn resends them, and full snippets made one 20-turn run cost 528k tokens. The logs keep everything.
 - **Nudge.** A model that stops early is invited to keep working (open other results, try other words) or submit; the
   forced submit comes second.
 - **Advisory checks** can send a result back at most once, and only with turns and tool calls left: discovery sends
-  back an empty result when search found results but no page was read. They never turn an honest result into a failure.
+  back an empty result when search found results but no page was read, and a result short of the brief's company count
+  while search offered results that were not opened. They never turn an honest result into a failure.
 - **Salvage.** When no repair turn is left, a role can keep the valid part of a result: discovery drops claims and
   quotes that cite sources not read in the execution, records every drop, and still fails if nothing valid remains
   (a failed result is never passed off as an empty one).

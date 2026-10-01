@@ -64,7 +64,8 @@ async function main(): Promise<number> {
       `${result.passed ? 'PASS' : 'FAIL'} ${evalCase.id}: proposed ${String(m.companiesProposed.length)} companies ` +
         `(${String(m.expectedFound.length)}/${String(evalCase.expect.companies.length)} expected), ${String(m.claimsProposed)} claims, ` +
         `${String(m.llmCalls)} model calls, ${String(m.toolCalls)} tool calls, ${String(m.sources)} sources, ` +
-        `cost ${(m.costUsdMicros / 1e6).toFixed(4)} USD, quote match ${m.quoteMatchRate === null ? 'n/a' : String(m.quoteMatchRate)}`,
+        `cost ${(m.costUsdMicros / 1e6).toFixed(4)} USD, quote match ${m.quoteMatchRate === null ? 'n/a' : String(m.quoteMatchRate)}, ` +
+        `grounded ${m.groundedQuoteRate === null ? 'n/a' : String(m.groundedQuoteRate)} ${JSON.stringify(m.grounding)}`,
     );
     for (const failure of result.failures) console.log(`     - ${failure}`);
     const out = join(root, 'results', mode, `${evalCase.id}.json`);

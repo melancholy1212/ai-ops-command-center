@@ -9,3 +9,5 @@ supabase/.branches/
 **/generated.ts
 *.md
 **/database.types.ts
+# Written by `eval --update-baseline`.
+evals/baselines/

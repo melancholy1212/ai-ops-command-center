@@ -6,7 +6,7 @@
  */
 import { createHash } from 'node:crypto';
 import type { AgentType, ExecutionLimits, RouteClass, ToolName } from '@aoc/contracts';
-import { TaskFailure, type BudgetDimension, type ClaimedTask } from '@aoc/core';
+import { canonicalJson, TaskFailure, type BudgetDimension, type ClaimedTask } from '@aoc/core';
 import {
   capabilitiesOf,
   toJsonSchema,
@@ -70,7 +70,7 @@ export interface AgentRole<I, O> {
   taskMessage(input: I): string;
   pacing?: ToolPacing;
   /** Checks beyond the schema; each message becomes part of a repair turn. */
-  validate?(output: O, seen: LoopObservations): string[];
+  validate?(output: O, seen: LoopObservations, input: I): string[];
   /**
    * When no repair turn is left: the valid part of a schema-valid result that failed `validate`. Invalid items
    * are dropped, never rewritten, and every drop is reported. Null when nothing valid is left, so a failed
@@ -104,6 +104,9 @@ export interface ToolLoopOptions<I, O> {
   now?: () => number;
 }
 
+/** Search snippets in the conversation: every later turn resends them, so they are kept short. */
+export const SNIPPET_CHARS_FOR_MODEL = 300;
+
 /** Tool results reach the model as JSON data. Page text is kept; bulky metadata is trimmed. */
 function forModel(name: string, outcome: ToolOutcome): string {
   if (!outcome.ok)
@@ -114,6 +117,22 @@ function forModel(name: string, outcome: ToolOutcome): string {
   delete rest.provenance;
   if (name === 'fetch_page' && Array.isArray(rest.links)) {
     return JSON.stringify({ ...rest, links: (rest.links as unknown[]).slice(0, 40) });
+  }
+  if (name === 'web_search' && Array.isArray(rest.results)) {
+    // Snippets only help choose what to open; they are not evidence. The full results stay in the logs.
+    const results = (rest.results as Record<string, unknown>[]).map((result) => {
+      const shown: Record<string, unknown> = { ...result };
+      delete shown.discoveredUrlId;
+      if (typeof result.snippet === 'string') {
+        const chars = Array.from(result.snippet);
+        shown.snippet =
+          chars.length > SNIPPET_CHARS_FOR_MODEL
+            ? `${chars.slice(0, SNIPPET_CHARS_FOR_MODEL).join('')}…`
+            : result.snippet;
+      }
+      return shown;
+    });
+    return JSON.stringify({ ...rest, results });
   }
   return JSON.stringify(rest);
 }
@@ -168,6 +187,8 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
   const modelTools = () => [...allowed.filter((t) => !unavailable.has(t.name) && !withheld(t.name)), submit];
   const messages: ConversationMessage[] = [{ role: 'user', content: role.taskMessage(input) }];
   const seenSources = new Set<string>();
+  /** Calls already made (tool + canonical arguments): an exact repeat returns nothing new. */
+  const madeCalls = new Set<string>();
   const seenTools = new Map<string, ToolStats>();
   let turns = 0;
   let toolCallsUsed = 0;
@@ -197,7 +218,8 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
   const validate = (candidate: unknown, canSendBack: boolean): Checked => {
     const parsed = role.output.safeParse(candidate);
     if (!parsed.success) return { ok: false, problems: describe(parsed.error.issues) };
-    const problems = role.validate?.(parsed.data, { sourceIds: seenSources, tools: seenTools, canSendBack }) ?? [];
+    const problems =
+      role.validate?.(parsed.data, { sourceIds: seenSources, tools: seenTools, canSendBack }, input) ?? [];
     return problems.length > 0 ? { ok: false, problems, parsed: parsed.data } : { ok: true, value: parsed.data };
   };
 
@@ -332,6 +354,14 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
         refuse('TOOL_NOT_PERMITTED', `${toolCall.name} is unavailable in this task; work with your other tools.`);
         return;
       }
+      const callKey = `${toolCall.name}\n${canonicalJson(args)}`;
+      if (madeCalls.has(callKey)) {
+        refuse(
+          'INVALID_ARGUMENT',
+          'You already made this exact call and its result is above. Use it, open a different result, or change the query.',
+        );
+        return;
+      }
       if (withheld(toolCall.name)) {
         refuse('TOOL_NOT_PERMITTED', pacing?.message ?? `${toolCall.name} is paused.`);
         return;
@@ -344,7 +374,12 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
       // Counted before the call (these checks run synchronously in request order), so parallel calls in one
       // turn cannot all slip past the limit.
       if (pacing?.tool === toolCall.name) paced += 1;
+      madeCalls.add(callKey);
       const outcome = await tools.call(toolCall.name, args, toolCall.id, signal);
+      // A failed call may be worth repeating (the error can be transient), so only successes count as made.
+      if (!outcome.ok) madeCalls.delete(callKey);
+      const newSource =
+        outcome.ok && typeof outcome.output.sourceId === 'string' && !seenSources.has(outcome.output.sourceId);
       const stats = seenTools.get(toolCall.name) ?? { calls: 0, failures: 0, results: 0 };
       if (!outcome.ok) seenTools.set(toolCall.name, { ...stats, failures: stats.failures + 1 });
       if (outcome.ok) {
@@ -354,7 +389,8 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
           calls: stats.calls + 1,
           results: stats.results + (Array.isArray(found) ? found.length : 0),
         });
-        if (pacing?.resetBy.includes(toolCall.name as ToolName)) paced = 0;
+        // Only a page not read before lifts the pause: re-reading a known source must not reopen search.
+        if (newSource && pacing?.resetBy.includes(toolCall.name as ToolName)) paced = 0;
       }
       if (outcome.ok && typeof outcome.output.sourceId === 'string') seenSources.add(outcome.output.sourceId);
       if (!outcome.ok && outcome.error.code === 'PROVIDER_UNAVAILABLE' && !outcome.error.retryable)

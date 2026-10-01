@@ -103,15 +103,16 @@ export const discoveryRole: AgentRole<DiscoveryInput, DiscoveryOutput> = {
     });
     return claims.length > 0 ? { value: { claims }, dropped } : null;
   },
-  validate(output, seen) {
+  validate(output, seen, input) {
     const problems: string[] = [];
-    // Advisory (sent back at most once): "nothing matches" is a finding only after reading what search offered.
-    if (
-      seen.canSendBack &&
-      output.claims.length === 0 &&
-      seen.sourceIds.size === 0 &&
-      (seen.tools.get('web_search')?.results ?? 0) > 0
-    )
+    // Advisory checks (sent back at most once, never on the last turn): stopping short is a finding only after
+    // reading what search offered.
+    const searchResults = seen.tools.get('web_search')?.results ?? 0;
+    const fetches = seen.tools.get('fetch_page');
+    const opened = fetches ? fetches.calls + fetches.failures : 0;
+    const unreadAdvice =
+      seen.canSendBack && output.claims.length === 0 && seen.sourceIds.size === 0 && searchResults > 0;
+    if (unreadAdvice)
       problems.push(
         'result: you have not read any page successfully. Open other promising search results with fetch_page, or search with different words, before concluding that nothing matches.',
       );
@@ -133,6 +134,11 @@ export const discoveryRole: AgentRole<DiscoveryInput, DiscoveryOutput> = {
         }
       });
     });
+    const wanted = input.criteria.maxCompanies;
+    if (seen.canSendBack && !unreadAdvice && companies.size < wanted && opened < searchResults)
+      problems.push(
+        `result: you have claims about ${String(companies.size)} of the ${String(wanted)} companies the brief asks for, and search returned results you have not opened. Open the ones that look relevant before submitting; if none do, submit the same result again.`,
+      );
     return problems;
   },
 };
