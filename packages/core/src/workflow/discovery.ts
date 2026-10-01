@@ -67,6 +67,8 @@ async function resolveCompany(
   ctx: DiscoveryContext,
   name: string,
   domain: string | null,
+  /** Companies this discovery has already resolved, before their claims are written. */
+  namedInCall: ReadonlySet<string>,
 ): Promise<{ id: string; name: string }> {
   const normalized = normalizeCompanyName(name);
   if (domain) {
@@ -77,17 +79,39 @@ async function resolveCompany(
       .executeTakeFirst();
     if (byDomain) return byDomain;
   }
-  const byName = await tx
+  // By name. With a domain, only a company not yet tied to another domain can match. Without one, the mention
+  // joins the namesake this run already names (agents give a domain on one claim and omit it on the next, which
+  // must not split one company in two), else a namesake without a domain. A bare name never joins a company with
+  // a domain from an earlier run: two companies can share a name.
+  const namesakes = await tx
     .selectFrom('companies')
     .select(['id', 'name', 'primary_domain'])
     .where('normalized_name', '=', normalized)
     .where((eb) =>
-      domain
-        ? eb.or([eb('primary_domain', 'is', null), eb('primary_domain', '=', domain)])
-        : eb('primary_domain', 'is', null),
+      domain ? eb.or([eb('primary_domain', 'is', null), eb('primary_domain', '=', domain)]) : eb.val(true),
     )
     .orderBy('created_at')
-    .executeTakeFirst();
+    .execute();
+  let byName = domain ? namesakes[0] : undefined;
+  if (!domain && namesakes.length > 0) {
+    const inRun = await tx
+      .selectFrom('claims')
+      .select('subject_company_id')
+      .distinct()
+      .where('run_id', '=', ctx.run.id)
+      .where(
+        'subject_company_id',
+        'in',
+        namesakes.map((c) => c.id),
+      )
+      .execute();
+    const named = new Set([
+      ...inRun.map((c) => c.subject_company_id),
+      ...namesakes.filter((c) => namedInCall.has(c.id)).map((c) => c.id),
+    ]);
+    byName =
+      named.size === 1 ? namesakes.find((c) => named.has(c.id)) : namesakes.find((c) => c.primary_domain === null);
+  }
   if (byName) {
     if (domain && byName.primary_domain === null) {
       await tx
@@ -171,10 +195,17 @@ export async function persistDiscovery(
   const companies: DiscoveredCompany[] = [];
   const claimIds: string[] = [];
   const groundedById = new Map<string, boolean>();
+  // Resolve every group first: two groups (a domain and a bare name) can turn out to be one company.
+  const resolved = new Map<string, { company: { id: string; name: string }; claims: ProposedClaim[] }>();
   for (const group of groups.values()) {
-    const company = await resolveCompany(tx, ctx, group.name, group.domain);
+    const company = await resolveCompany(tx, ctx, group.name, group.domain, new Set(resolved.keys()));
+    const entry = resolved.get(company.id) ?? { company, claims: [] };
+    entry.claims.push(...group.claims);
+    resolved.set(company.id, entry);
+  }
+  for (const { company, claims: proposed } of resolved.values()) {
     const scored: { assertion: ClaimAssertion; grounded: boolean; tierB: boolean }[] = [];
-    for (const proposal of group.claims) {
+    for (const proposal of proposed) {
       const assertion = ClaimAssertion.parse(proposal.assertion);
       const evidence = proposal.evidence
         .map((e) => ({ ...e, source: sources.get(e.sourceId) }))

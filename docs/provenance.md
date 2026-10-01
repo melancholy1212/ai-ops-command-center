@@ -120,7 +120,9 @@ Per claim, in order. Everything except step 3 is deterministic code.
    press release count once).
 5. **Consistency:** a conflicting value for the same subject and attribute makes both claims `contested`.
 6. **Entity resolution:** registrable domain, then registry identifiers, then normalised-name similarity (pg_trgm)
-   within the same country.
+   within the same country. Implemented today: the registrable domain, then the exact normalised name (legal
+   suffixes removed). A mention without a domain joins the namesake the run already names, else a namesake without a
+   domain. It never joins a company with a domain from an earlier run, because two companies can share a name.
 7. **Criteria:** a claim that takes the company outside the brief (e.g. HQ outside the country list) excludes the
    company with `OUTSIDE_CRITERIA`.
 8. **Coverage:** required attributes with no verified or probable claim become research gaps.

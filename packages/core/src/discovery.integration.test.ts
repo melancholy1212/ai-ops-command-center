@@ -227,6 +227,56 @@ describe('persistDiscovery', () => {
     expect(rows).toEqual([{ name: 'Northwind Climate', primary_domain: 'northwind.example' }]);
   });
 
+  it('joins a mention without a domain to the company of that name, and keeps ambiguous namesakes apart', async () => {
+    const ctx = await context();
+    const s1 = await source(ARTICLE);
+    const hqSe = { attribute: 'company.hq_country', value: { country: 'SE' } } as const;
+    const quote = 'Stockholm-based Northwind Climate has raised a EUR 4 million seed round';
+    // One run: the agent gives the domain on one claim and leaves it out on the next.
+    const first = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistDiscovery(tx, ctx, [
+        claim(company('Northwind Climate', 'northwind.example'), hqSe, s1, quote),
+        claim(
+          company('NORTHWIND CLIMATE AB', null),
+          { attribute: 'company.sector', value: { tags: ['carbon accounting'] } },
+          s1,
+          'The company builds carbon accounting software for manufacturers',
+        ),
+      ]),
+    );
+    expect(first.companies).toHaveLength(1);
+
+    // Namesakes: two companies called Nova with different domains. A bare "Nova" in a new run is ambiguous and
+    // stays apart; once this run has named one of them, a bare mention joins that one.
+    for (const domain of ['nova-a.example', 'nova-b.example']) {
+      await withWorkspace(h.db, tenant.workspaceId, async (tx) =>
+        persistDiscovery(tx, await context(), [claim(company('Nova', domain), hqSe, s1, quote)]),
+      );
+    }
+    const ambiguous = await withWorkspace(h.db, tenant.workspaceId, async (tx) =>
+      persistDiscovery(tx, await context(), [claim(company('Nova', null), hqSe, s1, quote)]),
+    );
+    const named = await context();
+    const joined = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistDiscovery(tx, named, [
+        claim(company('Nova', 'nova-b.example'), hqSe, s1, quote),
+        claim(
+          company('Nova', null),
+          { attribute: 'company.sector', value: { tags: ['carbon accounting'] } },
+          s1,
+          'The company builds carbon accounting software for manufacturers',
+        ),
+      ]),
+    );
+    const { rows } = await h.admin.query<{ id: string; primary_domain: string | null }>(
+      `select id, primary_domain from public.companies where workspace_id = $1 and normalized_name = 'nova' order by created_at`,
+      [tenant.workspaceId],
+    );
+    expect(rows.map((r) => r.primary_domain)).toEqual(['nova-a.example', 'nova-b.example', null]);
+    expect(ambiguous.companies.map((c) => c.id)).toEqual([rows[2]?.id]);
+    expect(joined.companies.map((c) => c.id)).toEqual([rows[1]?.id]);
+  });
+
   it('ranks candidates by criteria fit and expands the top ones with a report waiting for all', async () => {
     const ctx = await context();
     const nordic = await source(
