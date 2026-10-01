@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "recordings": [
+    {
+      "hash": "1690cef5f8172bb1430c61035f39fe35c2640bf0e256b277cd2b037b26a6d392",
+      "recordedAt": "2026-10-01T10:18:21.387Z",
+      "providerAccount": "earthruntime",
+      "model": "gpt-oss-120b",
+      "response": {
+        "text": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states a NOK 30 million seed round led by Fjord Ventures.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly says Fjordlight is headquartered in Oslo, Norway.\"\n    }\n  ]\n}",
+        "toolCalls": [],
+        "stopReason": "end_turn",
+        "usage": {
+          "inputTokens": 513,
+          "outputTokens": 171,
+          "reasoningTokens": null,
+          "cacheReadTokens": null,
+          "cacheWriteTokens": null
+        },
+        "cacheStatus": "not_supported",
+        "providerContent": {
+          "role": "assistant",
+          "content": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states a NOK 30 million seed round led by Fjord Ventures.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly says Fjordlight is headquartered in Oslo, Norway.\"\n    }\n  ]\n}",
+          "tool_calls": []
+        }
+      }
+    },
+    {
+      "hash": "f9ea22e407d94b2b4d743182e0de8b7e0ea17bf3db89e9b6db9ae8105365e822",
+      "recordedAt": "2026-10-01T10:18:21.264Z",
+      "providerAccount": "earthruntime",
+      "model": "gpt-oss-120b",
+      "response": {
+        "text": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states Pinecrest Carbon raised a $4 million seed round led by Front Range Capital.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly says Pinecrest Carbon is headquartered in Denver, United States.\"\n    }\n  ]\n}",
+        "toolCalls": [],
+        "stopReason": "end_turn",
+        "usage": {
+          "inputTokens": 517,
+          "outputTokens": 131,
+          "reasoningTokens": null,
+          "cacheReadTokens": null,
+          "cacheWriteTokens": null
+        },
+        "cacheStatus": "not_supported",
+        "providerContent": {
+          "role": "assistant",
+          "content": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states Pinecrest Carbon raised a $4 million seed round led by Front Range Capital.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly says Pinecrest Carbon is headquartered in Denver, United States.\"\n    }\n  ]\n}",
+          "tool_calls": []
+        }
+      }
+    }
+  ]
+}

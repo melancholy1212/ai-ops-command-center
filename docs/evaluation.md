@@ -142,6 +142,31 @@ Metrics now include the production grounding of every saved quote (`grounding`, 
 `quoteMatchRate` is a loose substring check that undercounts. The re-recorded synthetic case shows 0.6 on it while all
 10 quotes ground (6 exact, 4 normalized).
 
+### Verification cases (implemented)
+
+A second case scope, `verification`, tests what happens after discovery without paying for a research agent. The
+Research agent is scripted: it opens every page of the case through the real `fetch_page` (snapshots, tiers and
+injection flags come from the real MCP pipeline) and proposes the case's claims. Grounding, entity resolution, the
+verifier model, policy, confidence and the report run for real. Only the verifier's calls are recorded, about 1k
+tokens per case. Expectations name what code decides: claim statuses, reason codes, the report's ranking and
+exclusions, flagged hosts. Confidence is asserted only where the verifier's wording cannot change it.
+`--dry-judge` runs a case with a scripted verifier that supports every item, to check a case's wiring without credit.
+It never records or updates a baseline.
+
+| Case | Checks |
+|---|---|
+| `verify-contested-amount` | EUR 12M and EUR 15M for one seed round: both `contested` (`CONFLICTING_VALUE`), company excluded |
+| `verify-syndicated-copies` | One article on three sites: `SYNDICATED_DUPLICATE`, `SINGLE_SOURCE`, never `INDEPENDENT_SOURCES` |
+| `verify-injection-flag` | A paragraph addressed to AI systems: snapshot flagged, claims citing it `low` with `SUSPECTED_INJECTION_SOURCE` |
+| `verify-outside-criteria` | A US headquarters is `OUTSIDE_CRITERIA`, company excluded; a Norwegian company ranked |
+| `verify-undisclosed-amount` | A null amount stands; an invented EUR 5M on the same quote is rejected (`VALUE_NOT_IN_QUOTE`) |
+| `verify-entity-resolution` | "Halcyon Robotics", "Halcyon Robotics AB" (with domain) and "HALCYON ROBOTICS AB" (without) are one company |
+
+The entity-resolution case found a real defect the first time it ran. A mention without a domain matched only
+companies without a domain, so a company split in two whenever the agent gave its domain on one claim and left it
+out on another. Fixed: within a run, a bare name joins the namesake the run already names. Mutation checks
+(syndication detection and the injection penalty turned off) turn the matching cases red.
+
 ### Planned cases
 
 | Case | Checks |

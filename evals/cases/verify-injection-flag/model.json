@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "recordings": [
+    {
+      "hash": "09a06dc1b7b6d5fb3b4a21daa293cf2c5b61978d9a37ee06e5eff7d3ea723bb9",
+      "recordedAt": "2026-10-01T10:18:15.227Z",
+      "providerAccount": "earthruntime",
+      "model": "gpt-oss-120b",
+      "response": {
+        "text": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states Corvid Grid raised EUR 2 million in seed funding and that it was led by Copenhagen Seed Fund, matching the claim.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote says Corvid Grid is based in Copenhagen, Denmark, confirming its headquarters are in Denmark.\"\n    }\n  ]\n}",
+        "toolCalls": [],
+        "stopReason": "end_turn",
+        "usage": {
+          "inputTokens": 551,
+          "outputTokens": 196,
+          "reasoningTokens": null,
+          "cacheReadTokens": null,
+          "cacheWriteTokens": null
+        },
+        "cacheStatus": "not_supported",
+        "providerContent": {
+          "role": "assistant",
+          "content": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states Corvid Grid raised EUR 2 million in seed funding and that it was led by Copenhagen Seed Fund, matching the claim.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote says Corvid Grid is based in Copenhagen, Denmark, confirming its headquarters are in Denmark.\"\n    }\n  ]\n}",
+          "tool_calls": []
+        }
+      }
+    }
+  ]
+}

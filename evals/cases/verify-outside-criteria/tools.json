@@ -1,0 +1,16 @@
+{
+  "synthetic": true,
+  "search": [],
+  "pages": {
+    "https://usventure.example/2026/04/02/pinecrest-carbon-seed": {
+      "status": 200,
+      "contentType": "text/html",
+      "body": "<!doctype html><html lang=\"en\"><head><title>Pinecrest Carbon raises $4 million</title><meta property=\"article:published_time\" content=\"2026-04-02T14:00:00Z\"></head><body><article><h1>Pinecrest Carbon raises $4 million</h1><p>Pinecrest Carbon raised a $4 million seed round led by Front Range Capital.</p><p>Pinecrest Carbon is headquartered in Denver, United States, and measures emissions at cement plants.</p><p>The Nordic software market has grown steadily as companies across the region adopt cloud tools, and investors have kept writing early cheques for teams with paying customers.</p></article></body></html>"
+    },
+    "https://fjordpost.example/2026/05/20/fjordlight-seed": {
+      "status": 200,
+      "contentType": "text/html",
+      "body": "<!doctype html><html lang=\"en\"><head><title>Fjordlight closes NOK 30 million seed round</title><meta property=\"article:published_time\" content=\"2026-05-20T07:30:00Z\"></head><body><article><h1>Fjordlight closes NOK 30 million seed round</h1><p>Fjordlight has closed a NOK 30 million seed round led by Fjord Ventures.</p><p>Fjordlight is headquartered in Oslo, Norway, and forecasts energy use in commercial buildings.</p><p>The Nordic software market has grown steadily as companies across the region adopt cloud tools, and investors have kept writing early cheques for teams with paying customers.</p></article></body></html>"
+    }
+  }
+}

@@ -3,7 +3,8 @@
  * case must pass.
  */
 import type pg from 'pg';
-import type { EvalCase } from './case';
+import type { DiscoveryCase } from './case';
+import type { VerificationMetrics } from './verification-metrics';
 
 export interface CaseMetrics {
   taskStatus: string;
@@ -38,7 +39,7 @@ export interface CaseResult {
   mode: string;
   passed: boolean;
   failures: string[];
-  metrics: CaseMetrics;
+  metrics: CaseMetrics | VerificationMetrics;
   /** The run's trace: what the agent did, what it read, what it proposed. */
   trace?: unknown;
 }
@@ -91,7 +92,7 @@ const loose = (text: string) =>
     .trim();
 const matches = (a: string, b: string) => loose(a).includes(loose(b)) || loose(b).includes(loose(a));
 
-export async function collectMetrics(admin: pg.Client, runId: string, evalCase: EvalCase): Promise<CaseMetrics> {
+export async function collectMetrics(admin: pg.Client, runId: string, evalCase: DiscoveryCase): Promise<CaseMetrics> {
   const task = (
     await admin.query<{ status: string; last_failure: { code: string; message: string } | null }>(
       `select status, last_failure from public.tasks where run_id = $1 and type = 'discover_companies'`,
@@ -180,7 +181,7 @@ export async function collectMetrics(admin: pg.Client, runId: string, evalCase: 
 }
 
 /** The gates. Every failure is named, so a red result says exactly what regressed. */
-export function score(evalCase: EvalCase, metrics: CaseMetrics, baseline?: CaseMetrics): string[] {
+export function score(evalCase: DiscoveryCase, metrics: CaseMetrics, baseline?: CaseMetrics): string[] {
   const failures: string[] = [];
   const { limits } = evalCase.expect;
   if (metrics.taskStatus !== 'succeeded')

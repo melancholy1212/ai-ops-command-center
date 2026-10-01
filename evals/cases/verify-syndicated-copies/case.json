@@ -1,0 +1,112 @@
+{
+  "id": "verify-syndicated-copies",
+  "title": "One article reprinted on three sites counts as one source, not three",
+  "tags": ["verification", "grounding"],
+  "scope": "verification",
+  "synthetic": true,
+  "modes": ["replay-all", "replay-tools"],
+  "input": {
+    "objective": "Find seed-stage software startups in the Nordics that raised money in the last 12 months.",
+    "briefOverride": {
+      "sectorKeywords": ["software"],
+      "countries": ["SE", "NO", "DK", "FI", "IS"],
+      "fundingWindow": {
+        "from": "2025-10-01",
+        "to": "2026-09-30"
+      },
+      "fundingStages": ["pre_seed", "seed"],
+      "maxCompanies": 5,
+      "peopleRoles": ["founder", "ceo"],
+      "outreach": {
+        "enabled": false,
+        "maxCompanies": 0
+      }
+    },
+    "frozenNow": "2026-09-30T12:00:00.000Z",
+    "claims": [
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Brightloom",
+          "domainHint": "brightloom.example"
+        },
+        "assertion": {
+          "attribute": "company.funding_round",
+          "value": {
+            "stage": "seed",
+            "amount": 3000000,
+            "currency": "EUR",
+            "announcedOn": "2026-06-10",
+            "leadInvestors": ["Aurora Ventures"],
+            "otherInvestors": []
+          }
+        },
+        "rawValue": "EUR 3 million seed round",
+        "evidence": [
+          {
+            "url": "https://wirenorth.example/brightloom-seed",
+            "quote": "Helsinki-based Brightloom has raised EUR 3 million in a seed round led by Aurora Ventures"
+          },
+          {
+            "url": "https://dailytech.example/2026/06/10/brightloom-raises",
+            "quote": "Helsinki-based Brightloom has raised EUR 3 million in a seed round led by Aurora Ventures"
+          },
+          {
+            "url": "https://startupdigest.example/news/brightloom",
+            "quote": "Helsinki-based Brightloom has raised EUR 3 million in a seed round led by Aurora Ventures"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Brightloom",
+          "domainHint": "brightloom.example"
+        },
+        "assertion": {
+          "attribute": "company.hq_country",
+          "value": {
+            "country": "FI"
+          }
+        },
+        "rawValue": "Helsinki",
+        "evidence": [
+          {
+            "url": "https://wirenorth.example/brightloom-seed",
+            "quote": "The company plans to double its engineering team in Helsinki"
+          }
+        ]
+      }
+    ]
+  },
+  "fixtures": {
+    "tools": "tools.json",
+    "model": "model.json"
+  },
+  "expect": {
+    "companies": ["Brightloom"],
+    "claims": [
+      {
+        "company": "Brightloom",
+        "attribute": "company.funding_round",
+        "status": "probable",
+        "reasonsInclude": ["SYNDICATED_DUPLICATE", "SINGLE_SOURCE"],
+        "reasonsExclude": ["INDEPENDENT_SOURCES"]
+      },
+      {
+        "company": "Brightloom",
+        "attribute": "company.hq_country",
+        "status": "probable"
+      }
+    ],
+    "report": {
+      "ranked": ["Brightloom"],
+      "excluded": []
+    },
+    "limits": {
+      "maxCostUsdMicros": 20000,
+      "maxLlmCalls": 6,
+      "maxWallClockMs": 120000
+    }
+  }
+}

@@ -1,18 +1,35 @@
 /**
- * Eval cases (docs/evaluation.md). Phase 3 evaluates discovery at the proposal level: which companies the
- * Research agent proposes, from which sources, at what cost. Grounding and verification expectations join
- * when those steps exist (Phase 4).
+ * Eval cases (docs/evaluation.md). Two scopes:
+ * - discover_companies: the Research agent at the proposal level (which companies, from which sources, at what
+ *   cost), with recorded or live model and tools.
+ * - verification: discovery is scripted (it opens the case's pages through the real MCP pipeline and proposes
+ *   the case's claims); grounding, the verifier model, policy, confidence and the report run for real. Only the
+ *   verifier's small calls are recorded, so these cases are cheap to record.
  */
-import { HttpUrl, InterpretedCriteria, Timestamp, UsdMicros } from '@aoc/contracts';
+import {
+  ClaimAssertion,
+  ClaimAttribute,
+  ClaimStatus,
+  ConfidenceLevel,
+  HttpUrl,
+  InterpretedCriteria,
+  Timestamp,
+  UsdMicros,
+  VerificationReasonCode,
+} from '@aoc/contracts';
 import { z } from 'zod';
 
 export const EvalMode = z.enum(['replay-all', 'replay-tools', 'live']);
 export type EvalMode = z.infer<typeof EvalMode>;
 
-export const EvalCase = z.strictObject({
+const Tags = z.array(
+  z.enum(['happy_path', 'injection', 'egress', 'criteria', 'budget', 'grounding', 'coverage', 'verification']),
+);
+
+export const DiscoveryCase = z.strictObject({
   id: z.string().regex(/^[a-z0-9-]+$/),
   title: z.string().min(1),
-  tags: z.array(z.enum(['happy_path', 'injection', 'egress', 'criteria', 'budget', 'grounding', 'coverage'])),
+  tags: Tags,
   scope: z.literal('discover_companies'),
   /** Synthetic fixtures (invented companies and pages) are labelled as such. */
   synthetic: z.boolean(),
@@ -44,6 +61,70 @@ export const EvalCase = z.strictObject({
     }),
   }),
 });
+export type DiscoveryCase = z.infer<typeof DiscoveryCase>;
+
+/** A claim as the scripted discovery proposes it: evidence names the page by URL (its source id comes later). */
+const CaseClaim = z.strictObject({
+  subject: z.strictObject({
+    kind: z.literal('new_company'),
+    name: z.string().min(1),
+    domainHint: z.string().nullable(),
+  }),
+  assertion: ClaimAssertion,
+  rawValue: z.string().min(1),
+  evidence: z
+    .array(z.strictObject({ url: HttpUrl, quote: z.string().min(20) }))
+    .min(1)
+    .max(3),
+});
+export type CaseClaim = z.infer<typeof CaseClaim>;
+
+export const VerificationCase = z.strictObject({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  title: z.string().min(1),
+  tags: Tags,
+  scope: z.literal('verification'),
+  synthetic: z.boolean(),
+  modes: z.array(EvalMode).min(1).default(['replay-all', 'replay-tools']),
+  input: z.strictObject({
+    objective: z.string().min(10),
+    briefOverride: InterpretedCriteria,
+    frozenNow: Timestamp,
+    claims: z.array(CaseClaim).min(1).max(30),
+  }),
+  fixtures: z.strictObject({ tools: z.string().min(1), model: z.string().min(1) }),
+  expect: z.strictObject({
+    /** Every company the run resolves, by name: entity resolution must produce exactly these. */
+    companies: z.array(z.string().min(1)),
+    claims: z.array(
+      z.strictObject({
+        company: z.string().min(1),
+        attribute: ClaimAttribute,
+        /** Tells apart two claims of one attribute (e.g. the amounts of a contested round). */
+        statementIncludes: z.string().min(1).optional(),
+        status: ClaimStatus,
+        confidence: ConfidenceLevel.nullable().optional(),
+        confidenceScore: z.number().min(0).max(1).optional(),
+        reasonsInclude: z.array(VerificationReasonCode).default([]),
+        reasonsExclude: z.array(VerificationReasonCode).default([]),
+      }),
+    ),
+    report: z.strictObject({
+      ranked: z.array(z.string().min(1)),
+      excluded: z.array(z.strictObject({ company: z.string().min(1), reasonIncludes: z.string().min(1) })),
+    }),
+    /** Hosts whose saved snapshot must carry the suspected_prompt_injection flag. */
+    flaggedHosts: z.array(z.string().min(1)).default([]),
+    limits: z.strictObject({
+      maxCostUsdMicros: UsdMicros,
+      maxLlmCalls: z.int().positive(),
+      maxWallClockMs: z.int().positive(),
+    }),
+  }),
+});
+export type VerificationCase = z.infer<typeof VerificationCase>;
+
+export const EvalCase = z.discriminatedUnion('scope', [DiscoveryCase, VerificationCase]);
 export type EvalCase = z.infer<typeof EvalCase>;
 
 /** Recorded tool edges: the search corpus every query returns, and the pages the fetcher serves by URL. */

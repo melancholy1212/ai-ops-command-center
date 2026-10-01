@@ -11,7 +11,8 @@ import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { EvalCase, EvalMode } from './case';
-import type { CaseResult } from './metrics';
+import type { CaseMetrics, CaseResult } from './metrics';
+import type { VerificationMetrics } from './verification-metrics';
 import { runCase } from './runner';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -45,13 +46,38 @@ async function main(): Promise<number> {
   const baseline = await readFile(baselinePath, 'utf8')
     .then((text) => JSON.parse(text) as { cases: Record<string, CaseResult['metrics']> })
     .catch((): { cases: Record<string, CaseResult['metrics']> } => ({ cases: {} }));
+  const summary = (evalCase: (typeof cases)[number], result: CaseResult): string => {
+    if (evalCase.scope === 'verification') {
+      const m = result.metrics as VerificationMetrics;
+      return (
+        `${String(m.claims.length)} claims (${m.claims.map((c) => c.status).join(', ')}), ` +
+        `ranked ${JSON.stringify(m.report?.ranked ?? [])}, ${String(m.report?.excluded.length ?? 0)} excluded, ` +
+        `verdicts ${JSON.stringify(m.judgeVerdicts)}, ${String(m.llmCalls)} verifier calls, ` +
+        `cost ${(m.costUsdMicros / 1e6).toFixed(4)} USD`
+      );
+    }
+    const m = result.metrics as CaseMetrics;
+    return (
+      `proposed ${String(m.companiesProposed.length)} companies ` +
+      `(${String(m.expectedFound.length)}/${String(evalCase.expect.companies.length)} expected), ${String(m.claimsProposed)} claims, ` +
+      `${String(m.llmCalls)} model calls, ${String(m.toolCalls)} tool calls, ${String(m.sources)} sources, ` +
+      `cost ${(m.costUsdMicros / 1e6).toFixed(4)} USD, quote match ${m.quoteMatchRate === null ? 'n/a' : String(m.quoteMatchRate)}, ` +
+      `grounded ${m.groundedQuoteRate === null ? 'n/a' : String(m.groundedQuoteRate)} ${JSON.stringify(m.grounding)}`
+    );
+  };
   const useBaseline = mode !== 'live' && !flag('update-baseline');
+  const dryJudge = flag('dry-judge');
+  if (dryJudge && (flag('record') || flag('update-baseline'))) {
+    console.error('--dry-judge never records or updates baselines');
+    return 1;
+  }
 
   const results: CaseResult[] = [];
   for (const evalCase of runnable) {
     const result = await runCase(evalCase, {
       mode,
       record: flag('record'),
+      dryJudge,
       casesDir,
       ...(useBaseline && baseline.cases[evalCase.id] ? { baseline: baseline.cases[evalCase.id] } : {}),
       log: (line) => {
@@ -59,14 +85,7 @@ async function main(): Promise<number> {
       },
     });
     results.push(result);
-    const m = result.metrics;
-    console.log(
-      `${result.passed ? 'PASS' : 'FAIL'} ${evalCase.id}: proposed ${String(m.companiesProposed.length)} companies ` +
-        `(${String(m.expectedFound.length)}/${String(evalCase.expect.companies.length)} expected), ${String(m.claimsProposed)} claims, ` +
-        `${String(m.llmCalls)} model calls, ${String(m.toolCalls)} tool calls, ${String(m.sources)} sources, ` +
-        `cost ${(m.costUsdMicros / 1e6).toFixed(4)} USD, quote match ${m.quoteMatchRate === null ? 'n/a' : String(m.quoteMatchRate)}, ` +
-        `grounded ${m.groundedQuoteRate === null ? 'n/a' : String(m.groundedQuoteRate)} ${JSON.stringify(m.grounding)}`,
-    );
+    console.log(`${result.passed ? 'PASS' : 'FAIL'} ${evalCase.id}: ${summary(evalCase, result)}`);
     for (const failure of result.failures) console.log(`     - ${failure}`);
     const out = join(root, 'results', mode, `${evalCase.id}.json`);
     await mkdir(dirname(out), { recursive: true });

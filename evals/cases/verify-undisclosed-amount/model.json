@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "recordings": [
+    {
+      "hash": "ae7493a1f98d1a464275b31f87ec64185b74b7f02361ddb339ded9996dec4360",
+      "recordedAt": "2026-10-01T10:18:27.777Z",
+      "providerAccount": "earthruntime",
+      "model": "gpt-oss-120b",
+      "response": {
+        "text": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly states a seed round of undisclosed size led by Nordic Seed Partners, matching the claim.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"contradicts\",\n      \"reason\": \"The quote says the round size is undisclosed, which conflicts with the claim of a specific EUR 5,000,000 amount.\"\n    },\n    {\n      \"index\": 2,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote confirms Sundial Labs is headquartered in Stockholm, Sweden, aligning with the claim.\"\n    }\n  ]\n}",
+        "toolCalls": [],
+        "stopReason": "end_turn",
+        "usage": {
+          "inputTokens": 660,
+          "outputTokens": 249,
+          "reasoningTokens": null,
+          "cacheReadTokens": null,
+          "cacheWriteTokens": null
+        },
+        "cacheStatus": "not_supported",
+        "providerContent": {
+          "role": "assistant",
+          "content": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly states a seed round of undisclosed size led by Nordic Seed Partners, matching the claim.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"contradicts\",\n      \"reason\": \"The quote says the round size is undisclosed, which conflicts with the claim of a specific EUR 5,000,000 amount.\"\n    },\n    {\n      \"index\": 2,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote confirms Sundial Labs is headquartered in Stockholm, Sweden, aligning with the claim.\"\n    }\n  ]\n}",
+          "tool_calls": []
+        }
+      }
+    }
+  ]
+}

@@ -4,20 +4,22 @@
       "taskStatus": "succeeded",
       "taskFailure": null,
       "executionStatus": "succeeded",
-      "turns": 5,
-      "llmCalls": 5,
-      "toolCalls": 4,
-      "toolErrors": {},
-      "costUsdMicros": 8750,
-      "inputTokens": 12295,
-      "outputTokens": 2227,
+      "turns": 9,
+      "llmCalls": 9,
+      "toolCalls": 6,
+      "toolErrors": {
+        "INVALID_ARGUMENT": 1
+      },
+      "costUsdMicros": 9838,
+      "inputTokens": 33101,
+      "outputTokens": 4946,
       "sources": 3,
       "sourceHosts": [
         "fjordnews.example",
         "nordictech.example"
       ],
       "flaggedSources": 0,
-      "claimsProposed": 10,
+      "claimsProposed": 9,
       "companiesProposed": [
         "Fjordlight Energy Analytics",
         "HelioGrid",
@@ -31,12 +33,361 @@
       "expectedMissing": [],
       "forbiddenProposed": [],
       "forbiddenHostsFetched": [],
-      "quoteMatchRate": 0.6,
+      "quoteMatchRate": 1,
       "grounding": {
-        "exact": 6,
-        "normalized": 4
+        "exact": 9
       },
       "groundedQuoteRate": 1
+    },
+    "verify-contested-amount": {
+      "kind": "verification",
+      "runStatus": "completed",
+      "failedTasks": [],
+      "companies": [
+        "Quillmark"
+      ],
+      "claims": [
+        {
+          "company": "Quillmark",
+          "attribute": "company.funding_round",
+          "statement": "Quillmark announced a seed round of EUR 12,000,000 on 2026-05-04, led by Fjord Capital.",
+          "status": "contested",
+          "confidence": "low",
+          "confidenceScore": 0.35,
+          "reasons": [
+            "SINGLE_SOURCE",
+            "CONFLICTING_VALUE"
+          ]
+        },
+        {
+          "company": "Quillmark",
+          "attribute": "company.funding_round",
+          "statement": "Quillmark announced a seed round of EUR 15,000,000 on 2026-05-05, led by Fjord Capital.",
+          "status": "contested",
+          "confidence": "low",
+          "confidenceScore": 0.35,
+          "reasons": [
+            "SINGLE_SOURCE",
+            "CONFLICTING_VALUE"
+          ]
+        },
+        {
+          "company": "Quillmark",
+          "attribute": "company.hq_country",
+          "statement": "Quillmark is headquartered in Norway.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        }
+      ],
+      "report": {
+        "ranked": [],
+        "excluded": [
+          {
+            "company": "Quillmark",
+            "reason": "No verified or probable funding round inside the brief."
+          }
+        ]
+      },
+      "flaggedHosts": [],
+      "judgeVerdicts": {
+        "supports": 3
+      },
+      "llmCalls": 1,
+      "costUsdMicros": 61,
+      "inputTokens": 661,
+      "outputTokens": 237
+    },
+    "verify-entity-resolution": {
+      "kind": "verification",
+      "runStatus": "completed",
+      "failedTasks": [],
+      "companies": [
+        "Halcyon Robotics"
+      ],
+      "claims": [
+        {
+          "company": "Halcyon Robotics",
+          "attribute": "company.funding_round",
+          "statement": "Halcyon Robotics announced a seed round of EUR 6,000,000 on 2026-09-01, led by Baltic Robotics Fund.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Halcyon Robotics",
+          "attribute": "company.hq_country",
+          "statement": "Halcyon Robotics is headquartered in Sweden.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Halcyon Robotics",
+          "attribute": "company.sector",
+          "statement": "Halcyon Robotics works in warehouse robotics.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        }
+      ],
+      "report": {
+        "ranked": [
+          "Halcyon Robotics"
+        ],
+        "excluded": []
+      },
+      "flaggedHosts": [],
+      "judgeVerdicts": {
+        "supports": 3
+      },
+      "llmCalls": 1,
+      "costUsdMicros": 58,
+      "inputTokens": 667,
+      "outputTokens": 219
+    },
+    "verify-injection-flag": {
+      "kind": "verification",
+      "runStatus": "completed",
+      "failedTasks": [],
+      "companies": [
+        "Corvid Grid"
+      ],
+      "claims": [
+        {
+          "company": "Corvid Grid",
+          "attribute": "company.funding_round",
+          "statement": "Corvid Grid announced a seed round of EUR 2,000,000 on 2026-07-01, led by Copenhagen Seed Fund.",
+          "status": "probable",
+          "confidence": "low",
+          "confidenceScore": 0.35,
+          "reasons": [
+            "SINGLE_SOURCE",
+            "SUSPECTED_INJECTION_SOURCE"
+          ]
+        },
+        {
+          "company": "Corvid Grid",
+          "attribute": "company.hq_country",
+          "statement": "Corvid Grid is headquartered in Denmark.",
+          "status": "probable",
+          "confidence": "low",
+          "confidenceScore": 0.35,
+          "reasons": [
+            "SINGLE_SOURCE",
+            "SUSPECTED_INJECTION_SOURCE"
+          ]
+        }
+      ],
+      "report": {
+        "ranked": [
+          "Corvid Grid"
+        ],
+        "excluded": []
+      },
+      "flaggedHosts": [
+        "nordicbytes.example"
+      ],
+      "judgeVerdicts": {
+        "supports": 2
+      },
+      "llmCalls": 1,
+      "costUsdMicros": 50,
+      "inputTokens": 551,
+      "outputTokens": 196
+    },
+    "verify-outside-criteria": {
+      "kind": "verification",
+      "runStatus": "completed",
+      "failedTasks": [],
+      "companies": [
+        "Fjordlight",
+        "Pinecrest Carbon"
+      ],
+      "claims": [
+        {
+          "company": "Fjordlight",
+          "attribute": "company.funding_round",
+          "statement": "Fjordlight announced a seed round of NOK 30,000,000 on 2026-05-20, led by Fjord Ventures.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Fjordlight",
+          "attribute": "company.hq_country",
+          "statement": "Fjordlight is headquartered in Norway.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Pinecrest Carbon",
+          "attribute": "company.funding_round",
+          "statement": "Pinecrest Carbon announced a seed round of USD 4,000,000 on 2026-04-02, led by Front Range Capital.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Pinecrest Carbon",
+          "attribute": "company.hq_country",
+          "statement": "Pinecrest Carbon is headquartered in United States.",
+          "status": "rejected",
+          "confidence": null,
+          "confidenceScore": null,
+          "reasons": [
+            "SINGLE_SOURCE",
+            "OUTSIDE_CRITERIA"
+          ]
+        }
+      ],
+      "report": {
+        "ranked": [
+          "Fjordlight"
+        ],
+        "excluded": [
+          {
+            "company": "Pinecrest Carbon",
+            "reason": "Headquartered in US, outside SE, NO, DK, FI, IS."
+          }
+        ]
+      },
+      "flaggedHosts": [],
+      "judgeVerdicts": {
+        "supports": 4
+      },
+      "llmCalls": 2,
+      "costUsdMicros": 83,
+      "inputTokens": 1030,
+      "outputTokens": 302
+    },
+    "verify-syndicated-copies": {
+      "kind": "verification",
+      "runStatus": "completed",
+      "failedTasks": [],
+      "companies": [
+        "Brightloom"
+      ],
+      "claims": [
+        {
+          "company": "Brightloom",
+          "attribute": "company.funding_round",
+          "statement": "Brightloom announced a seed round of EUR 3,000,000 on 2026-06-10, led by Aurora Ventures.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SYNDICATED_DUPLICATE",
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Brightloom",
+          "attribute": "company.hq_country",
+          "statement": "Brightloom is headquartered in Finland.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        }
+      ],
+      "report": {
+        "ranked": [
+          "Brightloom"
+        ],
+        "excluded": []
+      },
+      "flaggedHosts": [],
+      "judgeVerdicts": {
+        "supports": 4
+      },
+      "llmCalls": 1,
+      "costUsdMicros": 80,
+      "inputTokens": 810,
+      "outputTokens": 325
+    },
+    "verify-undisclosed-amount": {
+      "kind": "verification",
+      "runStatus": "completed",
+      "failedTasks": [],
+      "companies": [
+        "Sundial Labs"
+      ],
+      "claims": [
+        {
+          "company": "Sundial Labs",
+          "attribute": "company.funding_round",
+          "statement": "Sundial Labs announced a seed round of an undisclosed amount on 2026-08-12, led by Nordic Seed Partners.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Sundial Labs",
+          "attribute": "company.funding_round",
+          "statement": "Sundial Labs announced a seed round of EUR 5,000,000 on 2026-08-12, led by Nordic Seed Partners.",
+          "status": "rejected",
+          "confidence": null,
+          "confidenceScore": null,
+          "reasons": [
+            "VALUE_NOT_IN_QUOTE",
+            "JUDGE_CONTRADICTS"
+          ]
+        },
+        {
+          "company": "Sundial Labs",
+          "attribute": "company.hq_country",
+          "statement": "Sundial Labs is headquartered in Sweden.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        }
+      ],
+      "report": {
+        "ranked": [
+          "Sundial Labs"
+        ],
+        "excluded": []
+      },
+      "flaggedHosts": [],
+      "judgeVerdicts": {
+        "contradicts": 1,
+        "supports": 2
+      },
+      "llmCalls": 1,
+      "costUsdMicros": 63,
+      "inputTokens": 660,
+      "outputTokens": 249
     }
   }
 }

@@ -1,0 +1,127 @@
+{
+  "id": "verify-entity-resolution",
+  "title": "Halcyon Robotics, Halcyon Robotics AB and HALCYON ROBOTICS AB resolve to one company",
+  "tags": ["verification", "coverage"],
+  "scope": "verification",
+  "synthetic": true,
+  "modes": ["replay-all", "replay-tools"],
+  "input": {
+    "objective": "Find seed-stage software startups in the Nordics that raised money in the last 12 months.",
+    "briefOverride": {
+      "sectorKeywords": ["software"],
+      "countries": ["SE", "NO", "DK", "FI", "IS"],
+      "fundingWindow": {
+        "from": "2025-10-01",
+        "to": "2026-09-30"
+      },
+      "fundingStages": ["pre_seed", "seed"],
+      "maxCompanies": 5,
+      "peopleRoles": ["founder", "ceo"],
+      "outreach": {
+        "enabled": false,
+        "maxCompanies": 0
+      }
+    },
+    "frozenNow": "2026-09-30T12:00:00.000Z",
+    "claims": [
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Halcyon Robotics",
+          "domainHint": "halcyon.example"
+        },
+        "assertion": {
+          "attribute": "company.funding_round",
+          "value": {
+            "stage": "seed",
+            "amount": 6000000,
+            "currency": "EUR",
+            "announcedOn": "2026-09-01",
+            "leadInvestors": ["Baltic Robotics Fund"],
+            "otherInvestors": []
+          }
+        },
+        "rawValue": "EUR 6 million seed round",
+        "evidence": [
+          {
+            "url": "https://nordicrobotics.example/2026/09/01/halcyon-robotics-seed",
+            "quote": "Halcyon Robotics has raised EUR 6 million in a seed round led by Baltic Robotics Fund"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Halcyon Robotics AB",
+          "domainHint": "www.halcyon.example"
+        },
+        "assertion": {
+          "attribute": "company.hq_country",
+          "value": {
+            "country": "SE"
+          }
+        },
+        "rawValue": "Gothenburg, Sweden",
+        "evidence": [
+          {
+            "url": "https://nordicrobotics.example/2026/09/01/halcyon-robotics-seed",
+            "quote": "Halcyon Robotics AB is headquartered in Gothenburg, Sweden"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "HALCYON ROBOTICS AB",
+          "domainHint": null
+        },
+        "assertion": {
+          "attribute": "company.sector",
+          "value": {
+            "tags": ["warehouse robotics"]
+          }
+        },
+        "rawValue": "warehouse robots",
+        "evidence": [
+          {
+            "url": "https://nordicrobotics.example/2026/09/01/halcyon-robotics-seed",
+            "quote": "The company builds software for warehouse robots that pick and pack orders"
+          }
+        ]
+      }
+    ]
+  },
+  "fixtures": {
+    "tools": "tools.json",
+    "model": "model.json"
+  },
+  "expect": {
+    "companies": ["Halcyon Robotics"],
+    "claims": [
+      {
+        "company": "Halcyon Robotics",
+        "attribute": "company.funding_round",
+        "status": "probable"
+      },
+      {
+        "company": "Halcyon Robotics",
+        "attribute": "company.hq_country",
+        "status": "probable"
+      },
+      {
+        "company": "Halcyon Robotics",
+        "attribute": "company.sector",
+        "status": "probable"
+      }
+    ],
+    "report": {
+      "ranked": ["Halcyon Robotics"],
+      "excluded": []
+    },
+    "limits": {
+      "maxCostUsdMicros": 20000,
+      "maxLlmCalls": 6,
+      "maxWallClockMs": 120000
+    }
+  }
+}

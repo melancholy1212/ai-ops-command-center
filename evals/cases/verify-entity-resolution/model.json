@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "recordings": [
+    {
+      "hash": "142e9b8b7591ae4fc38a1871c41f23afbc62197d81a7be93f35b48534e2eb865",
+      "recordedAt": "2026-10-01T10:18:33.976Z",
+      "providerAccount": "earthruntime",
+      "model": "gpt-oss-120b",
+      "response": {
+        "text": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states a EUR 6 million seed round led by Baltic Robotics Fund, matching the claim.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote says Halcyon Robotics AB is headquartered in Gothenburg, Sweden, confirming the claim.\"\n    },\n    {\n      \"index\": 2,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote describes the company building software for warehouse robots, which aligns with the claim about working in warehouse robotics.\"\n    }\n  ]\n}",
+        "toolCalls": [],
+        "stopReason": "end_turn",
+        "usage": {
+          "inputTokens": 667,
+          "outputTokens": 219,
+          "reasoningTokens": null,
+          "cacheReadTokens": null,
+          "cacheWriteTokens": null
+        },
+        "cacheStatus": "not_supported",
+        "providerContent": {
+          "role": "assistant",
+          "content": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states a EUR 6 million seed round led by Baltic Robotics Fund, matching the claim.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote says Halcyon Robotics AB is headquartered in Gothenburg, Sweden, confirming the claim.\"\n    },\n    {\n      \"index\": 2,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote describes the company building software for warehouse robots, which aligns with the claim about working in warehouse robotics.\"\n    }\n  ]\n}",
+          "tool_calls": []
+        }
+      }
+    }
+  ]
+}

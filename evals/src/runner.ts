@@ -36,6 +36,7 @@ import {
 import { connectMcp, createHandlers, createScheduler, createTokenMinter } from '@aoc/worker/eval';
 import { exportJWK, generateKeyPair } from 'jose';
 import { ToolFixtures, type EvalCase, type EvalMode } from './case';
+import type { VerificationMetrics } from './verification-metrics';
 import { fixtureFetcher, fixtureSearch, recordingEdges } from './fixtures';
 import { collectMetrics, collectTrace, score, type CaseResult } from './metrics';
 
@@ -43,12 +44,14 @@ export interface RunOptions {
   mode: EvalMode;
   /** Save what the live edges returned as the case's fixtures. */
   record: boolean;
+  /** Development only: a scripted verifier answers "supports" to every item (checks wiring without credit). */
+  dryJudge?: boolean;
   casesDir: string;
-  baseline?: CaseResult['metrics'];
+  baseline?: CaseResult['metrics'] | VerificationMetrics;
   log?: (line: string) => void;
 }
 
-function liveProviders(): LlmProvider[] {
+export function liveProviders(): LlmProvider[] {
   const providers: LlmProvider[] = [];
   if (process.env.ANTHROPIC_API_KEY) providers.push(createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }));
   if (process.env.EARTHRUNTIME_API_KEY) {
@@ -65,11 +68,15 @@ function liveProviders(): LlmProvider[] {
   return providers;
 }
 
-async function readJson(path: string): Promise<unknown> {
+export async function readJson(path: string): Promise<unknown> {
   return JSON.parse(await readFile(path, 'utf8')) as unknown;
 }
 
 export async function runCase(evalCase: EvalCase, options: RunOptions): Promise<CaseResult> {
+  if (evalCase.scope === 'verification') {
+    const { runVerificationCase } = await import('./verification-runner');
+    return runVerificationCase(evalCase, options);
+  }
   const say = options.log ?? (() => undefined);
   const caseDir = join(options.casesDir, evalCase.id);
   const toolsPath = join(caseDir, evalCase.fixtures.tools);
@@ -218,7 +225,8 @@ export async function runCase(evalCase: EvalCase, options: RunOptions): Promise<
     stopScheduler = null;
 
     const metrics = await collectMetrics(harness.admin, runId, evalCase);
-    const failures = score(evalCase, metrics, options.baseline);
+    const baseline = options.baseline && !('kind' in options.baseline) ? options.baseline : undefined;
+    const failures = score(evalCase, metrics, baseline);
 
     if (options.record) {
       if (recordings.length > 0)

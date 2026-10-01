@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "recordings": [
+    {
+      "hash": "3cea138fdcb752a01f43b7dc59bc08273deaa8028be59e571262d2caaebd6531",
+      "recordedAt": "2026-10-01T10:18:09.391Z",
+      "providerAccount": "earthruntime",
+      "model": "gpt-oss-120b",
+      "response": {
+        "text": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states Brightloom raised EUR 3 million in a seed round led by Aurora Ventures.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote matches the claim exactly about the EUR 3 million seed round led by Aurora Ventures.\"\n    },\n    {\n      \"index\": 2,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly confirms the claim of a EUR 3 million seed round led by Aurora Ventures.\"\n    },\n    {\n      \"index\": 3,\n      \"verdict\": \"supports\",\n      \"reason\": \"The context describes Brightloom as Helsinki‑based, indicating it is headquartered in Finland.\"\n    }\n  ]\n}",
+        "toolCalls": [],
+        "stopReason": "end_turn",
+        "usage": {
+          "inputTokens": 810,
+          "outputTokens": 325,
+          "reasoningTokens": null,
+          "cacheReadTokens": null,
+          "cacheWriteTokens": null
+        },
+        "cacheStatus": "not_supported",
+        "providerContent": {
+          "role": "assistant",
+          "content": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states Brightloom raised EUR 3 million in a seed round led by Aurora Ventures.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote matches the claim exactly about the EUR 3 million seed round led by Aurora Ventures.\"\n    },\n    {\n      \"index\": 2,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly confirms the claim of a EUR 3 million seed round led by Aurora Ventures.\"\n    },\n    {\n      \"index\": 3,\n      \"verdict\": \"supports\",\n      \"reason\": \"The context describes Brightloom as Helsinki‑based, indicating it is headquartered in Finland.\"\n    }\n  ]\n}",
+          "tool_calls": []
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "id": "verify-undisclosed-amount",
+  "title": "No amount published: a null amount stands, an invented one is rejected because it is not in the quote",
+  "tags": ["verification", "grounding"],
+  "scope": "verification",
+  "synthetic": true,
+  "modes": ["replay-all", "replay-tools"],
+  "input": {
+    "objective": "Find seed-stage software startups in the Nordics that raised money in the last 12 months.",
+    "briefOverride": {
+      "sectorKeywords": ["software"],
+      "countries": ["SE", "NO", "DK", "FI", "IS"],
+      "fundingWindow": {
+        "from": "2025-10-01",
+        "to": "2026-09-30"
+      },
+      "fundingStages": ["pre_seed", "seed"],
+      "maxCompanies": 5,
+      "peopleRoles": ["founder", "ceo"],
+      "outreach": {
+        "enabled": false,
+        "maxCompanies": 0
+      }
+    },
+    "frozenNow": "2026-09-30T12:00:00.000Z",
+    "claims": [
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Sundial Labs",
+          "domainHint": "sundiallabs.example"
+        },
+        "assertion": {
+          "attribute": "company.funding_round",
+          "value": {
+            "stage": "seed",
+            "amount": null,
+            "currency": null,
+            "announcedOn": "2026-08-12",
+            "leadInvestors": ["Nordic Seed Partners"],
+            "otherInvestors": []
+          }
+        },
+        "rawValue": "seed round of undisclosed size",
+        "evidence": [
+          {
+            "url": "https://stockholmtech.example/2026/08/12/sundial-labs-seed",
+            "quote": "Sundial Labs has closed a seed round of undisclosed size, led by Nordic Seed Partners"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Sundial Labs",
+          "domainHint": "sundiallabs.example"
+        },
+        "assertion": {
+          "attribute": "company.funding_round",
+          "value": {
+            "stage": "seed",
+            "amount": 5000000,
+            "currency": "EUR",
+            "announcedOn": "2026-08-12",
+            "leadInvestors": ["Nordic Seed Partners"],
+            "otherInvestors": []
+          }
+        },
+        "rawValue": "EUR 5 million seed round",
+        "evidence": [
+          {
+            "url": "https://stockholmtech.example/2026/08/12/sundial-labs-seed",
+            "quote": "Sundial Labs has closed a seed round of undisclosed size, led by Nordic Seed Partners"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Sundial Labs",
+          "domainHint": "sundiallabs.example"
+        },
+        "assertion": {
+          "attribute": "company.hq_country",
+          "value": {
+            "country": "SE"
+          }
+        },
+        "rawValue": "Stockholm, Sweden",
+        "evidence": [
+          {
+            "url": "https://stockholmtech.example/2026/08/12/sundial-labs-seed",
+            "quote": "Sundial Labs is headquartered in Stockholm, Sweden"
+          }
+        ]
+      }
+    ]
+  },
+  "fixtures": {
+    "tools": "tools.json",
+    "model": "model.json"
+  },
+  "expect": {
+    "companies": ["Sundial Labs"],
+    "claims": [
+      {
+        "company": "Sundial Labs",
+        "attribute": "company.funding_round",
+        "statementIncludes": "undisclosed amount",
+        "status": "probable"
+      },
+      {
+        "company": "Sundial Labs",
+        "attribute": "company.funding_round",
+        "statementIncludes": "EUR 5,000,000",
+        "status": "rejected",
+        "reasonsInclude": ["VALUE_NOT_IN_QUOTE"]
+      },
+      {
+        "company": "Sundial Labs",
+        "attribute": "company.hq_country",
+        "status": "probable"
+      }
+    ],
+    "report": {
+      "ranked": ["Sundial Labs"],
+      "excluded": []
+    },
+    "limits": {
+      "maxCostUsdMicros": 20000,
+      "maxLlmCalls": 6,
+      "maxWallClockMs": 120000
+    }
+  }
+}

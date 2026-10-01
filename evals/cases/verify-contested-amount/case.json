@@ -1,0 +1,142 @@
+{
+  "id": "verify-contested-amount",
+  "title": "Two outlets report the same seed round with amounts 25 % apart: both claims contested, the company excluded",
+  "tags": ["verification", "grounding"],
+  "scope": "verification",
+  "synthetic": true,
+  "modes": ["replay-all", "replay-tools"],
+  "input": {
+    "objective": "Find seed-stage software startups in the Nordics that raised money in the last 12 months.",
+    "briefOverride": {
+      "sectorKeywords": ["software"],
+      "countries": ["SE", "NO", "DK", "FI", "IS"],
+      "fundingWindow": {
+        "from": "2025-10-01",
+        "to": "2026-09-30"
+      },
+      "fundingStages": ["pre_seed", "seed"],
+      "maxCompanies": 5,
+      "peopleRoles": ["founder", "ceo"],
+      "outreach": {
+        "enabled": false,
+        "maxCompanies": 0
+      }
+    },
+    "frozenNow": "2026-09-30T12:00:00.000Z",
+    "claims": [
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Quillmark",
+          "domainHint": "quillmark.example"
+        },
+        "assertion": {
+          "attribute": "company.funding_round",
+          "value": {
+            "stage": "seed",
+            "amount": 12000000,
+            "currency": "EUR",
+            "announcedOn": "2026-05-04",
+            "leadInvestors": ["Fjord Capital"],
+            "otherInvestors": []
+          }
+        },
+        "rawValue": "EUR 12 million seed round",
+        "evidence": [
+          {
+            "url": "https://northwire.example/2026/05/04/quillmark-raises-seed",
+            "quote": "Quillmark has raised EUR 12 million in seed funding led by Fjord Capital"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Quillmark",
+          "domainHint": "quillmark.example"
+        },
+        "assertion": {
+          "attribute": "company.funding_round",
+          "value": {
+            "stage": "seed",
+            "amount": 15000000,
+            "currency": "EUR",
+            "announcedOn": "2026-05-05",
+            "leadInvestors": ["Fjord Capital"],
+            "otherInvestors": []
+          }
+        },
+        "rawValue": "EUR 15 million seed round",
+        "evidence": [
+          {
+            "url": "https://fjordpost.example/2026/05/05/quillmark-closes-seed-round",
+            "quote": "Quillmark closed a EUR 15 million seed round led by Fjord Capital"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Quillmark",
+          "domainHint": "quillmark.example"
+        },
+        "assertion": {
+          "attribute": "company.hq_country",
+          "value": {
+            "country": "NO"
+          }
+        },
+        "rawValue": "Oslo, Norway",
+        "evidence": [
+          {
+            "url": "https://northwire.example/2026/05/04/quillmark-raises-seed",
+            "quote": "Quillmark is headquartered in Oslo, Norway"
+          }
+        ]
+      }
+    ]
+  },
+  "fixtures": {
+    "tools": "tools.json",
+    "model": "model.json"
+  },
+  "expect": {
+    "companies": ["Quillmark"],
+    "claims": [
+      {
+        "company": "Quillmark",
+        "attribute": "company.funding_round",
+        "statementIncludes": "EUR 12,000,000",
+        "status": "contested",
+        "reasonsInclude": ["CONFLICTING_VALUE"]
+      },
+      {
+        "company": "Quillmark",
+        "attribute": "company.funding_round",
+        "statementIncludes": "EUR 15,000,000",
+        "status": "contested",
+        "reasonsInclude": ["CONFLICTING_VALUE"]
+      },
+      {
+        "company": "Quillmark",
+        "attribute": "company.hq_country",
+        "status": "probable",
+        "reasonsInclude": ["SINGLE_SOURCE"]
+      }
+    ],
+    "report": {
+      "ranked": [],
+      "excluded": [
+        {
+          "company": "Quillmark",
+          "reasonIncludes": "No verified or probable funding round"
+        }
+      ]
+    },
+    "limits": {
+      "maxCostUsdMicros": 20000,
+      "maxLlmCalls": 6,
+      "maxWallClockMs": 120000
+    }
+  }
+}

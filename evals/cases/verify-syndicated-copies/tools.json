@@ -1,0 +1,21 @@
+{
+  "synthetic": true,
+  "search": [],
+  "pages": {
+    "https://wirenorth.example/brightloom-seed": {
+      "status": 200,
+      "contentType": "text/html",
+      "body": "<!doctype html><html lang=\"en\"><head><title>Brightloom raises EUR 3 million</title><meta property=\"article:published_time\" content=\"2026-06-10T06:00:00Z\"></head><body><article><h1>Brightloom raises EUR 3 million</h1><p>Helsinki-based Brightloom has raised EUR 3 million in a seed round led by Aurora Ventures to expand its energy analytics platform across the Nordics.</p><p>Brightloom's software forecasts electricity demand for industrial sites and recommends when to shift production to cheaper, cleaner hours.</p><p>The company plans to double its engineering team in Helsinki and open a sales office in Stockholm next year.</p></article></body></html>"
+    },
+    "https://dailytech.example/2026/06/10/brightloom-raises": {
+      "status": 200,
+      "contentType": "text/html",
+      "body": "<!doctype html><html lang=\"en\"><head><title>Brightloom raises EUR 3 million seed round</title><meta property=\"article:published_time\" content=\"2026-06-10T08:30:00Z\"></head><body><article><h1>Brightloom raises EUR 3 million seed round</h1><p>Helsinki-based Brightloom has raised EUR 3 million in a seed round led by Aurora Ventures to expand its energy analytics platform across the Nordics.</p><p>Brightloom's software forecasts electricity demand for industrial sites and recommends when to shift production to cheaper, cleaner hours.</p><p>The company plans to double its engineering team in Helsinki and open a sales office in Stockholm next year.</p></article></body></html>"
+    },
+    "https://startupdigest.example/news/brightloom": {
+      "status": 200,
+      "contentType": "text/html",
+      "body": "<!doctype html><html lang=\"en\"><head><title>Brightloom: EUR 3 million for energy analytics</title><meta property=\"article:published_time\" content=\"2026-06-10T11:00:00Z\"></head><body><article><h1>Brightloom: EUR 3 million for energy analytics</h1><p>Helsinki-based Brightloom has raised EUR 3 million in a seed round led by Aurora Ventures to expand its energy analytics platform across the Nordics.</p><p>Brightloom's software forecasts electricity demand for industrial sites and recommends when to shift production to cheaper, cleaner hours.</p><p>The company plans to double its engineering team in Helsinki and open a sales office in Stockholm next year.</p></article></body></html>"
+    }
+  }
+}

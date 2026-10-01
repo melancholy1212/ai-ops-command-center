@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "recordings": [
+    {
+      "hash": "bc68d1e2144fccb59f9697d59351df45307303bba55e92e1907b74b84a08ebd3",
+      "recordedAt": "2026-10-01T10:18:02.866Z",
+      "providerAccount": "earthruntime",
+      "model": "gpt-oss-120b",
+      "response": {
+        "text": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly states a EUR 12 million seed funding led by Fjord Capital, matching the claim.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly states a EUR 15 million seed round led by Fjord Capital, matching the claim.\"\n    },\n    {\n      \"index\": 2,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote states Quillmark is headquartered in Oslo, Norway, confirming the claim.\"\n    }\n  ]\n}",
+        "toolCalls": [],
+        "stopReason": "end_turn",
+        "usage": {
+          "inputTokens": 661,
+          "outputTokens": 237,
+          "reasoningTokens": null,
+          "cacheReadTokens": null,
+          "cacheWriteTokens": null
+        },
+        "cacheStatus": "not_supported",
+        "providerContent": {
+          "role": "assistant",
+          "content": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly states a EUR 12 million seed funding led by Fjord Capital, matching the claim.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly states a EUR 15 million seed round led by Fjord Capital, matching the claim.\"\n    },\n    {\n      \"index\": 2,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote states Quillmark is headquartered in Oslo, Norway, confirming the claim.\"\n    }\n  ]\n}",
+          "tool_calls": []
+        }
+      }
+    }
+  ]
+}

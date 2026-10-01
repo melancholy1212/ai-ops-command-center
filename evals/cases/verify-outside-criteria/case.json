@@ -1,0 +1,163 @@
+{
+  "id": "verify-outside-criteria",
+  "title": "A verified US headquarters takes a company outside a Nordic brief; the Nordic company is ranked",
+  "tags": ["verification", "criteria"],
+  "scope": "verification",
+  "synthetic": true,
+  "modes": ["replay-all", "replay-tools"],
+  "input": {
+    "objective": "Find seed-stage software startups in the Nordics that raised money in the last 12 months.",
+    "briefOverride": {
+      "sectorKeywords": ["software"],
+      "countries": ["SE", "NO", "DK", "FI", "IS"],
+      "fundingWindow": {
+        "from": "2025-10-01",
+        "to": "2026-09-30"
+      },
+      "fundingStages": ["pre_seed", "seed"],
+      "maxCompanies": 5,
+      "peopleRoles": ["founder", "ceo"],
+      "outreach": {
+        "enabled": false,
+        "maxCompanies": 0
+      }
+    },
+    "frozenNow": "2026-09-30T12:00:00.000Z",
+    "claims": [
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Pinecrest Carbon",
+          "domainHint": "pinecrest.example"
+        },
+        "assertion": {
+          "attribute": "company.funding_round",
+          "value": {
+            "stage": "seed",
+            "amount": 4000000,
+            "currency": "USD",
+            "announcedOn": "2026-04-02",
+            "leadInvestors": ["Front Range Capital"],
+            "otherInvestors": []
+          }
+        },
+        "rawValue": "$4 million seed round",
+        "evidence": [
+          {
+            "url": "https://usventure.example/2026/04/02/pinecrest-carbon-seed",
+            "quote": "Pinecrest Carbon raised a $4 million seed round led by Front Range Capital"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Pinecrest Carbon",
+          "domainHint": "pinecrest.example"
+        },
+        "assertion": {
+          "attribute": "company.hq_country",
+          "value": {
+            "country": "US"
+          }
+        },
+        "rawValue": "Denver, United States",
+        "evidence": [
+          {
+            "url": "https://usventure.example/2026/04/02/pinecrest-carbon-seed",
+            "quote": "Pinecrest Carbon is headquartered in Denver, United States"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Fjordlight",
+          "domainHint": "fjordlight.example"
+        },
+        "assertion": {
+          "attribute": "company.funding_round",
+          "value": {
+            "stage": "seed",
+            "amount": 30000000,
+            "currency": "NOK",
+            "announcedOn": "2026-05-20",
+            "leadInvestors": ["Fjord Ventures"],
+            "otherInvestors": []
+          }
+        },
+        "rawValue": "NOK 30 million seed round",
+        "evidence": [
+          {
+            "url": "https://fjordpost.example/2026/05/20/fjordlight-seed",
+            "quote": "Fjordlight has closed a NOK 30 million seed round led by Fjord Ventures"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Fjordlight",
+          "domainHint": "fjordlight.example"
+        },
+        "assertion": {
+          "attribute": "company.hq_country",
+          "value": {
+            "country": "NO"
+          }
+        },
+        "rawValue": "Oslo, Norway",
+        "evidence": [
+          {
+            "url": "https://fjordpost.example/2026/05/20/fjordlight-seed",
+            "quote": "Fjordlight is headquartered in Oslo, Norway"
+          }
+        ]
+      }
+    ]
+  },
+  "fixtures": {
+    "tools": "tools.json",
+    "model": "model.json"
+  },
+  "expect": {
+    "companies": ["Fjordlight", "Pinecrest Carbon"],
+    "claims": [
+      {
+        "company": "Pinecrest Carbon",
+        "attribute": "company.hq_country",
+        "status": "rejected",
+        "reasonsInclude": ["OUTSIDE_CRITERIA"]
+      },
+      {
+        "company": "Pinecrest Carbon",
+        "attribute": "company.funding_round",
+        "status": "probable"
+      },
+      {
+        "company": "Fjordlight",
+        "attribute": "company.funding_round",
+        "status": "probable"
+      },
+      {
+        "company": "Fjordlight",
+        "attribute": "company.hq_country",
+        "status": "probable"
+      }
+    ],
+    "report": {
+      "ranked": ["Fjordlight"],
+      "excluded": [
+        {
+          "company": "Pinecrest Carbon",
+          "reasonIncludes": "Headquartered in US"
+        }
+      ]
+    },
+    "limits": {
+      "maxCostUsdMicros": 20000,
+      "maxLlmCalls": 6,
+      "maxWallClockMs": 120000
+    }
+  }
+}
