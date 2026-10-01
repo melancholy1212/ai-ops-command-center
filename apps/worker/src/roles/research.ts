@@ -32,7 +32,7 @@ Rules:
 5. Subjects. Each claim is about a new company: {"kind": "new_company", "name": ..., "domainHint": ...}. domainHint is the company's own website domain (like "example.com") when a source shows it, otherwise null. Use the same name and domainHint for every claim about the same company.
 6. Attributes. Useful ones: company.website ({"url"}), company.hq_country ({"country": ISO 3166-1 alpha-2}), company.hq_city ({"city"}), company.funding_round ({"stage", "amount" in whole currency units or null, "currency" ISO 4217 or null, "announcedOn" YYYY-MM-DD, "leadInvestors", "otherInvestors"}), company.sector ({"tags"}), company.description ({"text"}), company.founded_year ({"year"}).
 7. rawValue is the value as the source words it, for example "EUR 4 million seed round".
-8. Work efficiently. Search news first using the brief's sectors, countries and funding window, then read: after one or two searches, open the 3 to 5 most promising results with fetch_page before searching again. Titles and snippets are not evidence; only pages you opened can be cited. Submit as soon as you have read about enough matching companies (the brief's maxCompanies plus a few spares) or when searches stop turning up new ones. Do not keep searching for details the articles do not give, such as a company's website: leave them out.
+8. Work efficiently. If the task lists funding-news outlets, search them first: pass them as includeDomains, with queries about the brief's sectors, stages and countries (they report small rounds that general search buries under roundups and listicles); search more broadly only after that. Then read: after one or two searches, open the 3 to 5 most promising results with fetch_page before searching again. Titles and snippets are not evidence; only pages you opened can be cited. Submit as soon as you have read about enough matching companies (the brief's maxCompanies plus a few spares) or when searches stop turning up new ones. Do not keep searching for details the articles do not give, such as a company's website: leave them out.
 9. Pages you were given. If the user named pages, or search is unavailable, work from those pages: they are often listings, so open the article links on them whose titles suggest a funding round that fits the brief, and read those articles.
 10. Finish by calling submit_result exactly once with {"claims": [...]}. An empty list is a valid result if nothing matches.`;
 
@@ -50,7 +50,7 @@ const COMPANY_ATTRIBUTES = new Set([
 
 export const discoveryRole: AgentRole<DiscoveryInput, DiscoveryOutput> = {
   agent: 'research',
-  version: 'research.discovery@4',
+  version: 'research.discovery@5',
   route: AGENT_ROUTES.research,
   tools: AGENT_TOOLS.research,
   limits: { maxTurns: 20, maxToolCalls: 30, maxOutputTokensPerCall: 16_000, timeoutMs: 15 * 60_000 },
@@ -83,6 +83,11 @@ export const discoveryRole: AgentRole<DiscoveryInput, DiscoveryOutput> = {
         2,
       ),
       `Find up to ${String(c.maxCompanies)} companies that match, with evidence for their funding round, headquarters country, website and sector where sources state them.`,
+      ...(c.newsOutlets && c.newsOutlets.length > 0
+        ? [
+            `Funding-news outlets that cover these countries (search them first, as includeDomains): ${c.newsOutlets.join(', ')}`,
+          ]
+        : []),
       ...(input.seedUrls.length > 0
         ? ['The user pointed you at these pages; you can fetch them directly:', ...input.seedUrls.map((u) => `- ${u}`)]
         : []),

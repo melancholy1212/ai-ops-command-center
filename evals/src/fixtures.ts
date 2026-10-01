@@ -19,10 +19,17 @@ const SEARCH_COST_USD_MICROS = 8_000;
 export function fixtureSearch(fixtures: ToolFixtures): SearchProvider {
   return {
     name: 'fixture',
+    // Like the real provider, a domain filter limits results to those hosts and their subdomains.
     search: (query) =>
       Promise.resolve({
         provider: 'fixture',
-        hits: fixtures.search.slice(0, query.maxResults),
+        hits: fixtures.search
+          .filter((hit) => {
+            if (!query.includeDomains?.length) return true;
+            const host = new URL(hit.url).hostname;
+            return query.includeDomains.some((d) => host === d || host.endsWith(`.${d}`));
+          })
+          .slice(0, query.maxResults),
         costUsdMicros: SEARCH_COST_USD_MICROS,
         upstreamLatencyMs: 0,
       }),

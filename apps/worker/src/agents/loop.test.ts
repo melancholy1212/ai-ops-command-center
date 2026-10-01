@@ -646,6 +646,15 @@ describe('tool loop', () => {
     expect((salvaged?.content as { dropped: string[] }).dropped).toEqual(['claims.0: 1 quote(s) too short to ground']);
   });
 
+  it('tells discovery which funding-news outlets to search first, only when the brief has them', () => {
+    const withOutlets = discoveryRole.taskMessage({
+      ...input,
+      criteria: { ...input.criteria, newsOutlets: ['arcticstartup.com', 'tech.eu'] },
+    });
+    expect(withOutlets).toContain('(search them first, as includeDomains): arcticstartup.com, tech.eu');
+    expect(discoveryRole.taskMessage(input)).not.toContain('includeDomains');
+  });
+
   it('answers unparseable tool arguments with an error the model can fix', async () => {
     const provider = earthruntime([
       { toolCalls: [{ id: 'bad', name: 'web_search', argumentsJson: '{not json' }] },

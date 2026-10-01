@@ -10,6 +10,7 @@ import {
   ExecutionId,
   Failure,
   FundingStage,
+  Hostname,
   IsoDate,
   PersonRole,
   ProjectId,
@@ -57,6 +58,8 @@ export const InterpretedCriteria = z
     maxCompanies: z.int().min(1).max(25),
     peopleRoles: z.array(PersonRole).min(1).max(8),
     outreach: z.object({ enabled: z.boolean(), maxCompanies: z.int().min(0).max(10) }),
+    /** Funding-news outlets discovery searches first, chosen by code from the countries. Absent in older briefs. */
+    newsOutlets: z.array(Hostname).max(12).optional(),
   })
   .superRefine((c, ctx) => {
     if (c.fundingWindow.from > c.fundingWindow.to) {

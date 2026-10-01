@@ -107,6 +107,11 @@ export function PlanSnapshotView({ snapshot }: { snapshot: z.infer<typeof PlanSn
         <Row label="Stages">{c.fundingStages.length > 0 ? c.fundingStages.join(', ') : 'any'}</Row>
         <Row label="Companies">up to {c.maxCompanies}</Row>
         <Row label="People">{c.peopleRoles.join(', ')}</Row>
+        {c.newsOutlets && c.newsOutlets.length > 0 ? (
+          <Row label="Searches first">
+            <span className="font-mono text-xs">{c.newsOutlets.join(' ')}</span>
+          </Row>
+        ) : null}
         <Row label="Outreach">
           {c.outreach.enabled ? `up to ${String(c.outreach.maxCompanies)} drafts` : 'disabled'}
         </Row>

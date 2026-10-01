@@ -19,7 +19,8 @@
       "outreach": {
         "enabled": false,
         "maxCompanies": 0
-      }
+      },
+      "newsOutlets": ["nordictech.example", "fjordnews.example"]
     },
     "seedUrls": [],
     "frozenNow": "2026-09-30T12:00:00.000Z"

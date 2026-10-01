@@ -50,4 +50,5 @@ export {
   type NormalizedPlan,
 } from './workflow/plan';
 export { compileReport, SCORE_WEIGHTS, SCORING, type CompiledReport } from './workflow/report';
+export { FUNDING_NEWS_OUTLETS, MAX_NEWS_OUTLETS, newsOutletsFor, OUTLETS_VERSION } from './workflow/outlets';
 export type { UserActor } from './commands/common';

@@ -32,6 +32,15 @@ plan_run ─► approve_plan ─► discover_companies ─► verify_entity × t
 - `compile_report`: code only. Included companies passed verification and fit the brief; each gets a score finding
   (score@1) citing its claims. Everything else is listed as excluded with a reason and the claims behind it.
 
+### Targeted search
+
+The plan carries `newsOutlets`: funding-news sites that cover the brief's countries, chosen by code from a static
+table (`packages/core/src/workflow/outlets.ts`, regional outlets before pan-European ones, at most 8). They are
+shown on the approval card. Discovery is told to search them first, passing them as `includeDomains`, and to search
+more broadly only after that. In live runs, searches limited to a funding-news site found real rounds; open searches
+mostly returned roundups and listicles. Outlets are suggestions to the search, not an allowlist: fetching still
+follows URL provenance and the egress policy.
+
 ## Task catalogue
 
 | Task | Created | Kind | Agent · route | Consumes | Produces | Attempts | Pauses | Parallel |

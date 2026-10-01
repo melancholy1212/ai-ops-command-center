@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizePlan, planEstimate, type PlannerProposal } from './plan';
+import { MAX_NEWS_OUTLETS, newsOutletsFor } from './outlets';
 
 const proposal = (overrides: Partial<PlannerProposal> = {}): PlannerProposal => ({
   sectorKeywords: ['climate software', 'climate software', 'carbon accounting'],
@@ -63,6 +64,37 @@ describe('normalizePlan', () => {
       TODAY,
     );
     expect(plan.assumptions[0]).toEqual({ field: 'fundingWindow', assumed: 'last 12 months', reason: '"recently"' });
+  });
+});
+
+describe('news outlets', () => {
+  it('are chosen by code from the countries, regional before pan-European, and stated as an assumption', () => {
+    const plan = normalizePlan(proposal(), TODAY);
+    expect(plan.criteria.newsOutlets).toEqual([
+      'arcticstartup.com',
+      'breakit.se',
+      'shifter.no',
+      'eu-startups.com',
+      'tech.eu',
+      'techfundingnews.com',
+      'techcrunch.com',
+    ]);
+    expect(plan.assumptions.find((a) => a.field === 'newsOutlets')?.assumed).toMatch(/^arcticstartup\.com, /);
+    expect(newsOutletsFor(['DE'])).toEqual([
+      'trendingtopics.eu',
+      'deutsche-startups.de',
+      'eu-startups.com',
+      'tech.eu',
+      'techfundingnews.com',
+      'techcrunch.com',
+    ]);
+  });
+
+  it('are capped, and absent (with no assumption) where the table covers no country', () => {
+    expect(normalizePlan(proposal({ places: ['Europe'] }), TODAY).criteria.newsOutlets).toHaveLength(MAX_NEWS_OUTLETS);
+    const japan = normalizePlan(proposal({ places: ['JP'] }), TODAY);
+    expect(japan.criteria).not.toHaveProperty('newsOutlets');
+    expect(japan.assumptions.map((a) => a.field)).not.toContain('newsOutlets');
   });
 });
 

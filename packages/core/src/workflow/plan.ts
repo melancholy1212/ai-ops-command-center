@@ -15,6 +15,7 @@ import {
 } from '@aoc/contracts';
 import { z } from 'zod';
 import { TASK_COST_ESTIMATES } from '../budget';
+import { newsOutletsFor } from './outlets';
 
 /** What the planner model returns. Code turns it into InterpretedCriteria (docs/agents.md#planner). */
 export const PlannerProposal = z.strictObject({
@@ -190,6 +191,10 @@ export function normalizePlan(proposal: PlannerProposal, today: string): Normali
   // Workflow version 1 has no outreach step; the plan says so instead of promising drafts.
   assume('outreach', 'disabled', 'Outreach drafting is not part of this workflow version.');
 
+  const newsOutlets = newsOutletsFor(countries);
+  if (newsOutlets.length > 0)
+    assume('newsOutlets', newsOutlets.join(', '), 'Funding-news outlets for these countries, from the outlet table.');
+
   const criteria = InterpretedCriteria.parse({
     sectorKeywords: [...new Set(proposal.sectorKeywords.map((k) => k.trim()))],
     countries: countries.slice(0, 60),
@@ -198,6 +203,7 @@ export function normalizePlan(proposal: PlannerProposal, today: string): Normali
     maxCompanies,
     peopleRoles,
     outreach: { enabled: false, maxCompanies: 0 },
+    ...(newsOutlets.length > 0 ? { newsOutlets } : {}),
   });
   return { criteria, assumptions: assumptions.slice(0, 20), openQuestions: proposal.openQuestions };
 }
