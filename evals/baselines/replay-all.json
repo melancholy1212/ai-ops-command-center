@@ -4,22 +4,20 @@
       "taskStatus": "succeeded",
       "taskFailure": null,
       "executionStatus": "succeeded",
-      "turns": 9,
-      "llmCalls": 9,
-      "toolCalls": 6,
-      "toolErrors": {
-        "INVALID_ARGUMENT": 1
-      },
-      "costUsdMicros": 9838,
-      "inputTokens": 33101,
-      "outputTokens": 4946,
+      "turns": 7,
+      "llmCalls": 7,
+      "toolCalls": 4,
+      "toolErrors": {},
+      "costUsdMicros": 9580,
+      "inputTokens": 24086,
+      "outputTokens": 5019,
       "sources": 3,
       "sourceHosts": [
         "fjordnews.example",
         "nordictech.example"
       ],
       "flaggedSources": 0,
-      "claimsProposed": 9,
+      "claimsProposed": 10,
       "companiesProposed": [
         "Fjordlight Energy Analytics",
         "HelioGrid",
@@ -35,7 +33,7 @@
       "forbiddenHostsFetched": [],
       "quoteMatchRate": 1,
       "grounding": {
-        "exact": 9
+        "exact": 10
       },
       "groundedQuoteRate": 1
     },

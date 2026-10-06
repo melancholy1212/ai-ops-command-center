@@ -92,7 +92,10 @@ async function main(): Promise<number> {
     await writeFile(out, `${JSON.stringify(result, null, 2)}\n`);
   }
 
-  if (flag('update-baseline')) {
+  if (flag('update-baseline') && results.some((r) => !r.passed)) {
+    // A baseline is what later runs must not regress from: a failing run never becomes one.
+    console.error('baseline NOT updated: fix the failing cases first');
+  } else if (flag('update-baseline')) {
     const updated = {
       ...baseline,
       cases: { ...baseline.cases, ...Object.fromEntries(results.map((r) => [r.caseId, r.metrics])) },

@@ -86,7 +86,11 @@ export async function loadCompanyForVerification(
     .select(['id', 'statement', 'status', 'attribute', 'value', 'verification'])
     .where('run_id', '=', runId)
     .where('subject_company_id', '=', companyId)
+    // Rows written in one transaction share created_at (now() is per transaction), and ids are random per run:
+    // tie-break on content, so identical runs send the verifier identical batches (and replays match).
     .orderBy('created_at')
+    .orderBy('attribute')
+    .orderBy('statement')
     .execute();
   const evidence =
     claims.length === 0
@@ -117,6 +121,8 @@ export async function loadCompanyForVerification(
             claims.map((c) => c.id),
           )
           .orderBy('e.created_at')
+          .orderBy('s.final_url')
+          .orderBy('e.quote')
           .execute();
   return {
     id: company.id,
