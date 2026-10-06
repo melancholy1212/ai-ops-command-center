@@ -481,6 +481,46 @@ describe('tool loop', () => {
     expect(hopeless.result.ok || hopeless.result.error).toMatchObject({ code: 'AGENT_LIMIT_REACHED' });
   });
 
+  it('does not count searches that found nothing toward the pause (nothing to open would strand the model)', async () => {
+    const client = tools();
+    const original = client.call.bind(client);
+    let searches = 0;
+    client.call = (name, args, id, signal) => {
+      const query = (args as { query?: string }).query ?? '';
+      if (name === 'web_search') searches += 1;
+      if (name === 'web_search' && query.startsWith('empty'))
+        return Promise.resolve({ ok: true, output: { results: [] } });
+      if (name === 'web_search' && query === 'failing')
+        return Promise.resolve({
+          ok: false,
+          error: { code: 'UPSTREAM_ERROR', message: 'Upstream error.', retryable: true, retryAfterMs: null },
+        });
+      return original(name, args, id, signal);
+    };
+    const provider = earthruntime([
+      turn(toolCall('web_search', { query: 'empty one' })),
+      turn(toolCall('web_search', { query: 'empty two' })),
+      turn(toolCall('web_search', { query: 'failing' })),
+      turn(toolCall('web_search', { query: 'nordic seed' })),
+      turn(toolCall('fetch_page', { url: 'https://news.example/a' })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+      turn(toolCall(SUBMIT_TOOL, { claims: [claim()] })),
+    ]);
+    const outcome = await runToolLoop({
+      role: discoveryRole,
+      input,
+      router: new LlmRouter({ providers: [provider] }),
+      tools: client,
+      recorder: recorder(),
+      checkBudget: () => Promise.resolve([]),
+      signal: new AbortController().signal,
+    });
+    expect(outcome).toEqual({ claims: [claim()] });
+    // Every search reached the server: none was refused by the pause.
+    expect(searches).toBe(4);
+    expect(provider.requests[3]?.tools.map((t) => t.name)).toContain('web_search');
+  });
+
   it('lifts the search pause only for a page not read before', async () => {
     const provider = earthruntime([
       turn(toolCall('fetch_page', { url: 'https://news.example/a' })),

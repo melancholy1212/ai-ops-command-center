@@ -376,6 +376,11 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
       if (pacing?.tool === toolCall.name) paced += 1;
       madeCalls.add(callKey);
       const outcome = await tools.call(toolCall.name, args, toolCall.id, signal);
+      // A paced call that found nothing (failed, or no results) leaves nothing to open: it does not count, or two
+      // empty searches would pause search with nothing to read and strand the model (seen live).
+      const foundNothing =
+        !outcome.ok || (Array.isArray(outcome.output.results) && outcome.output.results.length === 0);
+      if (pacing?.tool === toolCall.name && foundNothing) paced = Math.max(0, paced - 1);
       // A failed call may be worth repeating (the error can be transient), so only successes count as made.
       if (!outcome.ok) madeCalls.delete(callKey);
       const newSource =
