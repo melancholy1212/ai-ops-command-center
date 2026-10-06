@@ -65,7 +65,14 @@ const publicJwk = JSON.stringify(publicKey.export({ format: 'jwk' }));
 const privateJwk = JSON.stringify(privateKey.export({ format: 'jwk' }));
 
 /** Provider credentials are yours to add (docs/deployment.md); rewriting a file never drops them. */
-const KEPT = ['ANTHROPIC_API_KEY', 'EARTHRUNTIME_API_KEY', 'EARTHRUNTIME_BASE_URL', 'TAVILY_API_KEY'];
+const KEPT = [
+  'ANTHROPIC_API_KEY',
+  'EARTHRUNTIME_API_KEY',
+  'EARTHRUNTIME_BASE_URL',
+  'BAZAARLINK_API_KEY',
+  'BAZAARLINK_BASE_URL',
+  'TAVILY_API_KEY',
+];
 const kept = (file) => {
   const path = join(root, file);
   if (!existsSync(path)) return {};

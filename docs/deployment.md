@@ -56,6 +56,7 @@ Never pasted into chat, never committed. `.env.example` files list every variabl
 | `MCP_URL` | the MCP server's `/mcp` endpoint (private network) | `.env.local` | — | yes | — | — |
 | `ANTHROPIC_API_KEY` | Anthropic Console (not Claude Code Max) | `.env.local` | — | yes | — | — |
 | `EARTHRUNTIME_API_KEY` | Earthruntime | `.env.local` | — | yes | — | — (evals replay recordings) |
+| `BAZAARLINK_API_KEY` | BazaarLink (optional, free tier tried first) | `.env.local` | — | yes | — | — |
 | `TAVILY_API_KEY` | Tavily (free plan: 1,000 credits/month) | `.env.local` | — | — | yes | — |
 | `COMPANIES_HOUSE_API_KEY` | UK Companies House | `.env.local` | — | — | yes | — |
 

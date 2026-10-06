@@ -66,13 +66,21 @@ Initial bindings, to be tuned by evals:
 | analysis | `claude-opus-5-5`, effort high | `qwen3.8-27b`, thinking off |
 | writing | `claude-opus-5-5`, effort medium | `qwen3.8-27b`, thinking off |
 
+With `BAZAARLINK_API_KEY` set, BazaarLink's free `qwen/qwen3.7-flash:free` is tried between Anthropic and
+Earthruntime on planning, agent_loop, extraction and judge (routes@2026-10-06). BazaarLink is an OpenAI-compatible
+gateway at `https://api.bazaarlink.ai/v1`. The free tier costs 0 and is limited to 10 requests a minute and 60 a
+day, and a rate limit falls back to Earthruntime. It passed forced tool choice, JSON schema and usage reporting on
+2026-10-06. On the first live run it planned well and ran the first discovery turns, then hit the daily limit.
+
 Each call records the binding that served it and the routing config version. A model without a price entry
 can't be routed to, so budgets can't be bypassed by an unpriced model.
 
 Once a conversation contains an assistant turn, later calls in it stay on that provider kind: another provider
 can't replay the turn exactly (thinking blocks and their signatures are provider-specific), so a fallback mid-loop
 only goes to another binding of the same provider. Each binding has a circuit breaker (3 consecutive availability
-failures open it for 30 s).
+failures open it for 30 s). A rate limit whose retry-after is longer than 60 s (a daily quota) opens it at once,
+until that time, at most a day. A live run waited 3 minutes per turn retrying an exhausted free quota before
+this rule existed.
 
 ## Model capabilities (config)
 
@@ -153,5 +161,6 @@ Prices are re-checked against each provider's pricing page when the adapter is i
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Anthropic API (Console billing, not Claude Code Max) | worker: local `.env.local`, Railway |
 | `EARTHRUNTIME_API_KEY` | Earthruntime | worker: local `.env.local`, Railway |
+| `BAZAARLINK_API_KEY` | BazaarLink (optional; per-key spend caps) | worker: local `.env.local`, Railway |
 
 Only the worker holds model credentials. Model context never contains credentials.

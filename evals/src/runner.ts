@@ -63,8 +63,17 @@ export function liveProviders(): LlmProvider[] {
       }),
     );
   }
+  if (process.env.BAZAARLINK_API_KEY) {
+    providers.push(
+      createOpenAiCompatibleProvider({
+        apiKey: process.env.BAZAARLINK_API_KEY,
+        baseURL: process.env.BAZAARLINK_BASE_URL ?? 'https://api.bazaarlink.ai/v1',
+        account: 'bazaarlink',
+      }),
+    );
+  }
   if (providers.length === 0)
-    throw new Error('No model provider configured: set EARTHRUNTIME_API_KEY or ANTHROPIC_API_KEY');
+    throw new Error('No model provider configured: set ANTHROPIC_API_KEY, BAZAARLINK_API_KEY or EARTHRUNTIME_API_KEY');
   return providers;
 }
 

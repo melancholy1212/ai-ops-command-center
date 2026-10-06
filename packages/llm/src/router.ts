@@ -8,6 +8,10 @@
  */
 import type { LlmProviderKind, RouteClass } from '@aoc/contracts';
 import { isPriced, ROUTES, ROUTING_CONFIG_VERSION } from './models';
+import { MAX_RETRY_AFTER_MS } from './retry';
+
+/** A provider's retry-after opens a breaker for at most a day. */
+const MAX_BREAKER_MS = 24 * 60 * 60 * 1000;
 import { LlmCallError, type LlmProvider, type LlmRequest, type LlmResponse, type ModelBinding } from './types';
 
 export interface RoutedResponse {
@@ -83,15 +87,22 @@ export class LlmRouter {
         return { response, binding, routingConfigVersion: this.routingConfigVersion };
       } catch (error) {
         if (!(error instanceof LlmCallError) || !error.availability) throw error;
-        this.recordFailure(binding);
+        this.recordFailure(binding, error);
         lastError = error;
       }
     }
     throw lastError ?? new LlmCallError('unavailable', `No binding could serve route ${route}`);
   }
 
-  private recordFailure(binding: ModelBinding) {
+  private recordFailure(binding: ModelBinding, error: LlmCallError) {
     const state = this.breakers.get(key(binding)) ?? { failures: 0, openUntil: 0 };
+    // The provider said when to come back, and it is not soon (a daily quota): skip the binding until then.
+    if (error.retryAfterMs !== null && error.retryAfterMs > MAX_RETRY_AFTER_MS) {
+      state.openUntil = this.now() + Math.min(error.retryAfterMs, MAX_BREAKER_MS);
+      state.failures = 0;
+      this.breakers.set(key(binding), state);
+      return;
+    }
     state.failures += 1;
     if (state.failures >= this.threshold) {
       state.openUntil = this.now() + this.cooldownMs;

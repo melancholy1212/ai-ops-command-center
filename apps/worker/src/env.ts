@@ -26,6 +26,9 @@ const WorkerEnv = z
     ANTHROPIC_API_KEY: z.string().min(10).optional(),
     EARTHRUNTIME_API_KEY: z.string().min(10).optional(),
     EARTHRUNTIME_BASE_URL: z.url({ protocol: /^https$/ }).default('https://api.earthruntime.com/v1'),
+    /** BazaarLink (OpenAI-compatible gateway): its free tier is tried before Earthruntime when set. */
+    BAZAARLINK_API_KEY: z.string().min(10).optional(),
+    BAZAARLINK_BASE_URL: z.url({ protocol: /^https$/ }).default('https://api.bazaarlink.ai/v1'),
   })
   .refine((env) => env.HEARTBEAT_INTERVAL_MS * 2 <= env.TASK_LEASE_SECONDS * 1000, {
     error: 'HEARTBEAT_INTERVAL_MS must be at most half of TASK_LEASE_SECONDS',

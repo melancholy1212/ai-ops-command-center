@@ -57,8 +57,19 @@ if (env.EARTHRUNTIME_API_KEY) {
     }),
   );
 }
+if (env.BAZAARLINK_API_KEY) {
+  providers.push(
+    createOpenAiCompatibleProvider({
+      apiKey: env.BAZAARLINK_API_KEY,
+      baseURL: env.BAZAARLINK_BASE_URL,
+      account: 'bazaarlink',
+    }),
+  );
+}
 const missing = [
-  providers.length === 0 ? 'a model provider key (EARTHRUNTIME_API_KEY or ANTHROPIC_API_KEY)' : null,
+  providers.length === 0
+    ? 'a model provider key (ANTHROPIC_API_KEY, BAZAARLINK_API_KEY or EARTHRUNTIME_API_KEY)'
+    : null,
   env.MCP_URL ? null : 'MCP_URL',
   env.CAPABILITY_PRIVATE_JWK ? null : 'CAPABILITY_PRIVATE_JWK',
 ].filter((m): m is string => m !== null);

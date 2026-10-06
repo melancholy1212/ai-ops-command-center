@@ -125,19 +125,38 @@ describe('in-call retries', () => {
     expect(new LlmCallError('billing', 'credit used up').availability).toBe(false);
   });
 
-  it('honours retry-after (capped at 60 s), then backs off 1 s / 4 s / 10 s and gives up after 3 retries', async () => {
+  it('honours retry-after up to 60 s, then backs off 1 s / 4 s / 10 s and gives up after 3 retries', async () => {
     const waits: number[] = [];
     const error = await withInCallRetries(
       () => Promise.reject(new Error('boom')),
-      () => new LlmCallError('rate_limited', 'slow down', waits.length === 0 ? 90_000 : null),
+      () => new LlmCallError('rate_limited', 'slow down', waits.length === 0 ? 45_000 : null),
       signal,
       (ms) => {
         waits.push(ms);
         return Promise.resolve();
       },
     ).catch((e: unknown) => e);
-    expect(waits).toEqual([60_000, 4_000, 10_000]);
+    expect(waits).toEqual([45_000, 4_000, 10_000]);
     expect(error).toMatchObject({ kind: 'rate_limited', retryCount: 3 });
+  });
+
+  it('fails at once when the provider says to come back later than 60 s (a daily quota): waiting spends quota', async () => {
+    let calls = 0;
+    const waits: number[] = [];
+    const error = await withInCallRetries(
+      () => {
+        calls += 1;
+        return Promise.reject(new Error('daily limit'));
+      },
+      () => new LlmCallError('rate_limited', 'Free model daily limit reached.', 28_848_000),
+      signal,
+      (ms) => {
+        waits.push(ms);
+        return Promise.resolve();
+      },
+    ).catch((e: unknown) => e);
+    expect([calls, waits]).toEqual([1, []]);
+    expect(error).toMatchObject({ kind: 'rate_limited', retryCount: 0, retryAfterMs: 28_848_000 });
   });
 
   it('does not retry a request the provider refused as invalid', async () => {
@@ -433,6 +452,60 @@ describe('router', () => {
       kind: 'invalid_request',
     });
     expect(other.requests).toHaveLength(0);
+  });
+
+  it('tries the free BazaarLink tier before paid Earthruntime, and falls back to it on a rate limit', async () => {
+    const free = createScriptedProvider([{ text: 'hi' }], { account: 'bazaarlink' });
+    const earth = createScriptedProvider([{ text: 'hi' }], { account: 'earthruntime' });
+    const router = new LlmRouter({ providers: [earth, free] });
+    for (const route of ['planning', 'agent_loop', 'extraction', 'judge'] as const) {
+      expect(router.candidates(route).map((b) => b.providerAccount)).toEqual(['bazaarlink', 'earthruntime']);
+    }
+    const { binding } = await router.generate('agent_loop', request(gptOss), signal);
+    expect([binding.providerAccount, binding.model]).toEqual(['bazaarlink', 'qwen/qwen3.7-flash:free']);
+    expect(
+      costUsdMicros(binding.model, {
+        inputTokens: 50_000,
+        outputTokens: 2_000,
+        reasoningTokens: null,
+        cacheReadTokens: null,
+        cacheWriteTokens: null,
+      }),
+    ).toBe(0);
+
+    const limited = failing(
+      'bazaarlink',
+      'openai_compatible',
+      new LlmCallError('rate_limited', '429 upstream_rate_limited'),
+    );
+    const paid = createScriptedProvider([{ text: 'hi' }], { account: 'earthruntime' });
+    const fallback = await new LlmRouter({ providers: [limited, paid] }).generate('judge', request(gptOss), signal);
+    expect(fallback.binding.providerAccount).toBe('earthruntime');
+    // Without its key, nothing changes for the other routes' order.
+    expect(new LlmRouter({ providers: [paid] }).candidates('agent_loop').map((b) => b.model)).toEqual(['gpt-oss-120b']);
+  });
+
+  it('skips a binding until the time its provider gave, when that is not soon', async () => {
+    let now = 0;
+    const exhausted = failing(
+      'bazaarlink',
+      'openai_compatible',
+      new LlmCallError('rate_limited', 'Free model daily limit reached.', 8 * 60 * 60 * 1000),
+    );
+    const paid = createScriptedProvider(
+      Array.from({ length: 3 }, () => ({ text: 'hi' })),
+      { account: 'earthruntime' },
+    );
+    const router = new LlmRouter({ providers: [exhausted, paid], now: () => now });
+    expect((await router.generate('agent_loop', request(gptOss), signal)).binding.providerAccount).toBe('earthruntime');
+    // One failure was enough: the next call does not try the exhausted binding at all.
+    now = 7 * 60 * 60 * 1000;
+    expect((await router.generate('agent_loop', request(gptOss), signal)).binding.providerAccount).toBe('earthruntime');
+    expect(exhausted.calls).toBe(1);
+    // After the provider's time has passed, it is tried again.
+    now = 8 * 60 * 60 * 1000 + 1;
+    await router.generate('agent_loop', request(gptOss), signal);
+    expect(exhausted.calls).toBe(2);
   });
 
   it('opens a binding circuit after repeated failures and retries it after the cooldown', async () => {

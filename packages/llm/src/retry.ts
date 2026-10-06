@@ -2,7 +2,11 @@ import { LlmCallError } from './types';
 
 /** In-call retries (docs/state-machines.md#retries): honour retry-after up to 60 s, else 1 s, 4 s, 10 s. */
 export const IN_CALL_BACKOFF_MS = [1_000, 4_000, 10_000] as const;
-const MAX_RETRY_AFTER_MS = 60_000;
+/**
+ * The longest retry-after worth waiting for in a call. A longer one (a daily quota, hours away) fails at once:
+ * waiting and retrying would only spend more of the quota, and the router opens the binding's breaker until then.
+ */
+export const MAX_RETRY_AFTER_MS = 60_000;
 
 export type Sleep = (ms: number, signal: AbortSignal) => Promise<void>;
 
@@ -39,13 +43,11 @@ export async function withInCallRetries<T>(
       return { value: await attempt(), retryCount: retries };
     } catch (error) {
       const failure = classify(error);
-      if (!failure.availability || retries >= IN_CALL_BACKOFF_MS.length || signal.aborted) {
+      const notSoon = failure.retryAfterMs !== null && failure.retryAfterMs > MAX_RETRY_AFTER_MS;
+      if (!failure.availability || notSoon || retries >= IN_CALL_BACKOFF_MS.length || signal.aborted) {
         throw new LlmCallError(failure.kind, failure.message, failure.retryAfterMs, retries);
       }
-      const delay =
-        failure.retryAfterMs !== null
-          ? Math.min(failure.retryAfterMs, MAX_RETRY_AFTER_MS)
-          : (IN_CALL_BACKOFF_MS[retries] ?? 10_000);
+      const delay = failure.retryAfterMs ?? IN_CALL_BACKOFF_MS[retries] ?? 10_000;
       await wait(delay, signal);
     }
   }

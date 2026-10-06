@@ -5,8 +5,11 @@
 import type { RouteClass, TokenUsage } from '@aoc/contracts';
 import type { ModelBinding, ModelCapabilities } from './types';
 
-/** Checked against anthropic.com and earthruntime.com/pricing.md on 2026-09-30. USD per million tokens. */
-export const PRICING_VERSION = 'pricing@2026-09-30';
+/**
+ * Checked against anthropic.com and earthruntime.com/pricing.md on 2026-09-30, and BazaarLink's /v1/models on
+ * 2026-10-06. USD per million tokens.
+ */
+export const PRICING_VERSION = 'pricing@2026-10-06';
 
 interface Price {
   input: number;
@@ -23,6 +26,8 @@ const PRICES: Record<string, Price> = {
   'gpt-oss-120b': { input: 0.03, output: 0.17, cacheWrite: null, cacheRead: null },
   'qwen3.6-35b': { input: 0.1, output: 0.9, cacheWrite: null, cacheRead: null },
   'qwen3.8-27b': { input: 0.24, output: 2.2, cacheWrite: null, cacheRead: null },
+  // BazaarLink's free tier: priced at 0 by the provider, limited to 10 requests a minute and 60 a day instead.
+  'qwen/qwen3.7-flash:free': { input: 0, output: 0, cacheWrite: null, cacheRead: null },
 };
 
 export function isPriced(model: string): boolean {
@@ -103,6 +108,19 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     contextWindow: 262_000,
     maxOutputTokens: 32_000,
   },
+  // Verified through BazaarLink on 2026-10-06: forced tool choice, JSON schema and usage work. Reasoning is on
+  // by default and reported as 0 tokens, so no reasoning parameter is sent. Context per BazaarLink's model list;
+  // the output limit is not published, so it is capped like the other Qwen models.
+  'qwen/qwen3.7-flash:free': {
+    forcedToolChoice: true,
+    parallelToolCalls: true,
+    structuredOutput: true,
+    promptCaching: false,
+    reasoningControl: 'none',
+    reportsReasoningTokens: false,
+    contextWindow: 1_000_000,
+    maxOutputTokens: 32_000,
+  },
 };
 
 export function capabilitiesOf(model: string): ModelCapabilities {
@@ -111,7 +129,7 @@ export function capabilitiesOf(model: string): ModelCapabilities {
   return capabilities;
 }
 
-export const ROUTING_CONFIG_VERSION = 'routes@2026-09-30';
+export const ROUTING_CONFIG_VERSION = 'routes@2026-10-06';
 
 const anthropic = (model: string, reasoning: ModelBinding['reasoning']): ModelBinding => ({
   providerAccount: 'anthropic',
@@ -125,13 +143,20 @@ const earthruntime = (model: string, reasoning: ModelBinding['reasoning']): Mode
   model,
   reasoning,
 });
+/** BazaarLink's free tier: tried before paid Earthruntime when configured; a rate limit falls back to it. */
+const bazaarlinkFree: ModelBinding = {
+  providerAccount: 'bazaarlink',
+  providerKind: 'openai_compatible',
+  model: 'qwen/qwen3.7-flash:free',
+  reasoning: 'off',
+};
 
 /** Ordered: the router takes the first binding whose provider is configured and healthy. */
 export const ROUTES: Record<RouteClass, readonly ModelBinding[]> = {
-  planning: [anthropic('claude-opus-5-5', 'high'), earthruntime('gpt-oss-120b', 'medium')],
-  agent_loop: [anthropic('claude-opus-5-5', 'medium'), earthruntime('gpt-oss-120b', 'low')],
-  extraction: [anthropic('claude-haiku-4-5', 'off'), earthruntime('gpt-oss-120b', 'low')],
-  judge: [anthropic('claude-haiku-4-5', 'off'), earthruntime('gpt-oss-120b', 'low')],
+  planning: [anthropic('claude-opus-5-5', 'high'), bazaarlinkFree, earthruntime('gpt-oss-120b', 'medium')],
+  agent_loop: [anthropic('claude-opus-5-5', 'medium'), bazaarlinkFree, earthruntime('gpt-oss-120b', 'low')],
+  extraction: [anthropic('claude-haiku-4-5', 'off'), bazaarlinkFree, earthruntime('gpt-oss-120b', 'low')],
+  judge: [anthropic('claude-haiku-4-5', 'off'), bazaarlinkFree, earthruntime('gpt-oss-120b', 'low')],
   analysis: [anthropic('claude-opus-5-5', 'high'), earthruntime('qwen3.8-27b', 'off')],
   writing: [anthropic('claude-opus-5-5', 'medium'), earthruntime('qwen3.8-27b', 'off')],
 };
