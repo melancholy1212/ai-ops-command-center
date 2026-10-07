@@ -1,19 +1,84 @@
 @import 'tailwindcss';
 
-/* Control-room tokens (docs/ui.md). Accents are used sparingly: focus, selection, live state. */
+/*
+ * Industrial Precision (.claude/skills/ai-ops-ui/SKILL.md). This block is the only place colours, type and geometry
+ * are defined: components use the class names (bg-panel, text-ink-muted, border-line), never hex values. Tailwind's
+ * default palette and its larger radii are cleared, so an off-system colour or a soft corner does not compile.
+ */
 @theme {
-  --color-canvas: #0b0d10;
-  --color-panel: #12151a;
-  --color-raised: #1a1e24;
-  --color-line: #232830;
-  --color-ink: #e6e8eb;
-  --color-ink-muted: #9aa3ae;
-  --color-ink-subtle: #6b7480;
-  --color-accent: #3ba7ff;
-  --color-accent-cyan: #22d3ee;
-  --color-ok: #3fb27f;
-  --color-warn: #f5a524;
-  --color-danger: #f0525c;
+  --color-*: initial;
+
+  /* Surfaces, darkest first. SKILL.md: bg, surface, surface-2, elevated. */
+  --color-canvas: #101113;
+  --color-panel: #151719;
+  --color-raised: #1b1d20;
+  --color-elevated: #202328;
+
+  /* SKILL.md: border, border-strong. */
+  --color-line: #2a2d31;
+  --color-line-strong: #363a40;
+
+  /* SKILL.md: text, text-muted, text-subtle, text-disabled. */
+  --color-ink: #f1f0eb;
+  --color-ink-muted: #a7a9a7;
+  --color-ink-subtle: #70737a;
+  --color-ink-disabled: #50535a;
+
+  /* A signal, not a brand wash: the primary action, active and selected state, progress, focus. */
+  --color-accent: #b8e64a;
+
+  /* Status colours, each always paired with a glyph and a label. SKILL.md: success, review, warning, danger, info. */
+  --color-ok: #72c28b;
+  --color-review: #d6a24a;
+  --color-warn: #e0a05a;
+  --color-danger: #d66b67;
+  --color-info: #7ea7d9;
+
+  /* Controls and small panels 6 px, large panels 8 px, drawers and modals 10 px. Bare `rounded` stays 4 px, for
+     meter tracks and other small inline marks. */
+  --radius-*: initial;
+  --radius: 0.25rem;
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.625rem;
+
+  /* Type scale, desktop. Mobile steps down to the -mobile sizes. */
+  --text-display: 3rem;
+  --text-display--line-height: 3.25rem;
+  --text-display--letter-spacing: -0.03em;
+  --text-display-mobile: 2.25rem;
+  --text-display-mobile--line-height: 2.5rem;
+  --text-display-mobile--letter-spacing: -0.03em;
+  --text-title: 2rem;
+  --text-title--line-height: 2.25rem;
+  --text-title--letter-spacing: -0.02em;
+  --text-title-mobile: 1.625rem;
+  --text-title-mobile--line-height: 2rem;
+  --text-title-mobile--letter-spacing: -0.02em;
+  --text-section: 1.25rem;
+  --text-section--line-height: 1.625rem;
+  --text-section--letter-spacing: -0.01em;
+  --text-section-mobile: 1.125rem;
+  --text-section-mobile--line-height: 1.5rem;
+  --text-section-mobile--letter-spacing: -0.01em;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.3125rem;
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.125rem;
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1rem;
+  /* Geist Mono labels: status, ids, group headings. */
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1rem;
+  /* Tailwind's text-sm is the body size, so give it the body rhythm too. */
+  --text-sm--line-height: 1.3125rem;
+
+  /* Shell geometry. */
+  --spacing-sidebar: 13.5rem;
+  --spacing-topbar: 3.5rem;
+  --container-page: 80rem;
 }
 
 @theme inline {
@@ -21,16 +86,23 @@
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
-:root {
-  color-scheme: dark;
-}
+@layer base {
+  :root {
+    color-scheme: dark;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
 
-body {
-  @apply bg-canvas font-sans text-ink antialiased;
-}
+  body {
+    @apply bg-canvas font-sans text-body text-ink antialiased;
+  }
 
-:focus-visible {
-  @apply outline-2 outline-offset-2 outline-accent;
+  ::selection {
+    @apply bg-accent/25 text-ink;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

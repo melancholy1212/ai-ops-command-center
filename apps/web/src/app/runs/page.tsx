@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ConsoleShell } from '@/components/console-shell';
 import { StatusBadge } from '@/components/status-badge';
+import { buttonClass } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
 import { formatUsd, formatUtc, taskProgress } from '@/lib/run-view';
 import { requireUser } from '@/lib/server/session';
 
@@ -16,13 +18,15 @@ export default async function RunsPage() {
     .limit(50);
 
   return (
-    <ConsoleShell active="Runs" session={session}>
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-medium">Runs</h1>
-        <Link href="/runs/new" className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-canvas">
-          New run
-        </Link>
-      </div>
+    <ConsoleShell section="runs" session={session}>
+      <PageHeader
+        title="Runs"
+        actions={
+          <Link href="/runs/new" className={buttonClass({ variant: 'primary' })}>
+            New run
+          </Link>
+        }
+      />
       {error ? (
         <p role="alert" className="rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
           Could not load runs. Try again in a moment.

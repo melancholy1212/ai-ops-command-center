@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useActionState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/field';
 import { initialAuthFormState } from '@/lib/auth-form-state';
 import { signIn, signUp } from './actions';
 
@@ -12,9 +14,6 @@ const MODE_LINKS: readonly { mode: Mode; href: string; label: string }[] = [
   { mode: 'sign-in', href: '/sign-in', label: 'Sign in' },
   { mode: 'sign-up', href: '/sign-in?mode=sign-up', label: 'Create account' },
 ];
-
-const inputClass =
-  'mt-1 block w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-ink-subtle focus:border-accent focus:outline-none';
 
 export function SignInForm({ mode }: { mode: Mode }) {
   const [signInState, signInAction, signInPending] = useActionState(signIn, initialAuthFormState);
@@ -41,20 +40,19 @@ export function SignInForm({ mode }: { mode: Mode }) {
       </nav>
 
       <form action={mode === 'sign-in' ? signInAction : signUpAction} className="mt-6 space-y-4">
-        <label className="block text-sm text-ink-muted">
-          Email
-          <input name="email" type="email" autoComplete="email" required className={inputClass} />
+        <label className="block space-y-1.5 text-small font-medium text-ink-muted">
+          <span>Email</span>
+          <Input name="email" type="email" autoComplete="email" required />
         </label>
-        <label className="block text-sm text-ink-muted">
-          Password
-          <input
+        <label className="block space-y-1.5 text-small font-medium text-ink-muted">
+          <span>Password</span>
+          <Input
             name="password"
             type="password"
             autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
             minLength={8}
             maxLength={72}
             required
-            className={inputClass}
           />
         </label>
 
@@ -69,13 +67,9 @@ export function SignInForm({ mode }: { mode: Mode }) {
           </p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full rounded-md bg-accent px-4 py-2 text-sm font-medium text-canvas transition-colors hover:bg-accent/85 disabled:opacity-60"
-        >
+        <Button type="submit" variant="primary" size="lg" disabled={pending} className="w-full">
           {pending ? 'Working…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
-        </button>
+        </Button>
       </form>
     </div>
   );

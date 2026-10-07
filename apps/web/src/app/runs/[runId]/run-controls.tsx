@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { Button } from '@/components/ui/button';
 import { EMPTY_FORM_STATE } from '@/lib/run-forms';
 import { runControlAction } from '../actions';
 
@@ -12,26 +13,14 @@ export function RunControls({ runId, canStart, canCancel }: { runId: string; can
       <input type="hidden" name="runId" value={runId} />
       <div className="flex gap-2">
         {canStart ? (
-          <button
-            type="submit"
-            name="intent"
-            value="start"
-            disabled={pending}
-            className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-canvas disabled:opacity-50"
-          >
+          <Button type="submit" variant="primary" name="intent" value="start" disabled={pending}>
             Start run
-          </button>
+          </Button>
         ) : null}
         {canCancel ? (
-          <button
-            type="submit"
-            name="intent"
-            value="cancel"
-            disabled={pending}
-            className="rounded-md border border-line px-3 py-1.5 text-sm text-ink-muted hover:text-danger disabled:opacity-50"
-          >
+          <Button type="submit" variant="danger" name="intent" value="cancel" disabled={pending}>
             Cancel run
-          </button>
+          </Button>
         ) : null}
       </div>
       {state.error ? (

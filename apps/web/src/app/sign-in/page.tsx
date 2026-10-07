@@ -10,7 +10,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   return (
     <main className="flex min-h-dvh items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <Link href="/" className="font-mono text-xs tracking-[0.2em] text-accent-cyan uppercase">
+        <Link href="/" className="font-mono text-xs tracking-[0.2em] text-ink-subtle uppercase">
           AI Operations Command Center
         </Link>
         <h1 className="mt-3 mb-6 text-2xl font-semibold tracking-tight">

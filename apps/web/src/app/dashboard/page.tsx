@@ -5,7 +5,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { formatUtc } from '@/lib/run-view';
 import { requireUser } from '@/lib/server/session';
 
-export const metadata: Metadata = { title: 'Dashboard' };
+export const metadata: Metadata = { title: 'Overview' };
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   const workspace = memberships?.[0]?.workspace;
 
   return (
-    <ConsoleShell active="Dashboard" session={session}>
+    <ConsoleShell section="overview" session={session}>
       {error ? (
         <p role="alert" className="rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
           Could not load your workspace. Try again in a moment.
@@ -36,13 +36,13 @@ export default async function DashboardPage() {
       ) : null}
 
       {(pending ?? []).length > 0 ? (
-        <section className="rounded-lg border border-warn/40 bg-panel p-4">
-          <h2 className="text-xs font-medium tracking-wide text-warn uppercase">Waiting for you</h2>
+        <section className="rounded-lg border border-review/40 bg-panel p-4">
+          <h2 className="text-xs font-medium tracking-wide text-review uppercase">Waiting for you</h2>
           <ul className="mt-2 space-y-1 text-sm">
             {(pending ?? []).map((a) => (
               <li key={a.id}>
                 <Link href={`/runs/${a.run_id}`} className="text-ink hover:text-accent">
-                  <span aria-hidden="true" className="text-warn">
+                  <span aria-hidden="true" className="text-review">
                     ◆{' '}
                   </span>
                   {a.type.replaceAll('_', ' ')} approval

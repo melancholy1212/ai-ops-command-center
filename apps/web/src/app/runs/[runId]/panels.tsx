@@ -152,9 +152,9 @@ export function ApprovalCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-warn/40 bg-panel">
+    <section className="rounded-lg border border-review/40 bg-panel">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
-        <h2 className="text-sm font-medium text-warn">
+        <h2 className="text-sm font-medium text-review">
           <span aria-hidden="true">◆ </span>Approval needed: {humanize(type)}
         </h2>
         <span className="font-mono text-[11px] text-ink-subtle">
@@ -251,7 +251,7 @@ export function ReportPanel({ report, runStatus }: { report: ReportView | null; 
                   <span className="font-mono text-ink-subtle">#{entry.rank}</span>{' '}
                   <span className="font-medium text-ink">{entry.name}</span>
                 </p>
-                <p className="font-mono text-sm text-accent-cyan">
+                <p className="font-mono text-sm text-ink">
                   {entry.total === null ? 'score unreadable' : `${entry.total.toFixed(2)} / 1`}
                 </p>
               </div>

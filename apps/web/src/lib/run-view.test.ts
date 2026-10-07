@@ -5,6 +5,7 @@ import {
   formatUsd,
   formatUtc,
   leaseState,
+  runStatusMeta,
   stageSummaries,
   statusMeta,
   taskProgress,
@@ -38,8 +39,26 @@ describe('stageSummaries', () => {
 
 describe('display helpers', () => {
   it('never invents a status it does not know', () => {
-    expect(statusMeta('task', 'succeeded')).toEqual({ label: 'Succeeded', glyph: '✓', tone: 'green' });
-    expect(statusMeta('run', 'exploded')).toEqual({ label: 'Unknown (exploded)', glyph: '?', tone: 'grey' });
+    expect(statusMeta('task', 'succeeded')).toEqual({ label: 'Completed', shape: 'check', tone: 'success' });
+    expect(statusMeta('task', 'ready')).toEqual({ label: 'Queued', shape: 'ring', tone: 'neutral' });
+    expect(statusMeta('run', 'paused')).toEqual({ label: 'Paused', shape: 'pause', tone: 'warning' });
+    expect(statusMeta('run', 'exploded')).toEqual({ label: 'Unknown (exploded)', shape: 'dashed', tone: 'quiet' });
+  });
+
+  it('names a running run for its stage only when every live task is in that stage', () => {
+    const now = new Date('2026-09-30T12:00:00Z');
+    const live = '2026-09-30T12:00:05Z';
+    const expired = '2026-09-30T11:59:55Z';
+    const task = (type: string, lease: string | null) => ({ type, status: 'running', lease_expires_at: lease });
+    expect(runStatusMeta('running', [task('discover_companies', live)], now).label).toBe('Discovering');
+    expect(runStatusMeta('running', [task('verify_entity', live), task('verify_entity', live)], now).label).toBe(
+      'Verifying',
+    );
+    expect(runStatusMeta('running', [task('verify_entity', live), task('profile_company', live)], now).label).toBe(
+      'Running',
+    );
+    expect(runStatusMeta('running', [task('discover_companies', expired)], now).label).toBe('Running');
+    expect(runStatusMeta('completed', [task('discover_companies', live)], now).label).toBe('Completed');
   });
 
   it('shows running only while the lease is live', () => {

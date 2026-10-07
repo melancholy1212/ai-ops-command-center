@@ -4,50 +4,75 @@
  */
 import type { ClaimStatus, RunStatus, TaskStatus, TaskType } from '@aoc/contracts';
 
-export type Tone = 'slate' | 'cyan' | 'amber' | 'green' | 'red' | 'grey' | 'blue';
+/** Semantic colour of a status (SKILL.md status colours). Quiet is for states that need no attention. */
+export type Tone = 'neutral' | 'quiet' | 'info' | 'success' | 'review' | 'warning' | 'danger';
+/** The glyph drawn beside the label, so a status never depends on colour alone. */
+export type StatusShape =
+  'dot' | 'ring' | 'dashed' | 'target' | 'half' | 'diamond' | 'pause' | 'check' | 'cross' | 'triangle' | 'dash';
 export interface StatusMeta {
   label: string;
-  glyph: string;
+  shape: StatusShape;
   tone: Tone;
 }
 
+// Labels use the SKILL.md vocabulary (Queued, Awaiting review, Completed, ...) where the stored state means exactly
+// that, and keep their own word where it does not (Draft, Paused, Skipped, Cancelled). A blocked task is waiting on
+// its dependencies, which is normal, so it is quiet rather than a warning.
 const TASK: Record<TaskStatus, StatusMeta> = {
-  blocked: { label: 'Blocked', glyph: '◌', tone: 'grey' },
-  ready: { label: 'Ready', glyph: '○', tone: 'slate' },
-  running: { label: 'Running', glyph: '●', tone: 'cyan' },
-  waiting_approval: { label: 'Waiting approval', glyph: '◆', tone: 'amber' },
-  succeeded: { label: 'Succeeded', glyph: '✓', tone: 'green' },
-  failed: { label: 'Failed', glyph: '✕', tone: 'red' },
-  skipped: { label: 'Skipped', glyph: '–', tone: 'grey' },
-  cancelled: { label: 'Cancelled', glyph: '–', tone: 'grey' },
+  blocked: { label: 'Blocked', shape: 'dashed', tone: 'quiet' },
+  ready: { label: 'Queued', shape: 'ring', tone: 'neutral' },
+  running: { label: 'Running', shape: 'dot', tone: 'info' },
+  waiting_approval: { label: 'Awaiting review', shape: 'diamond', tone: 'review' },
+  succeeded: { label: 'Completed', shape: 'check', tone: 'success' },
+  failed: { label: 'Failed', shape: 'cross', tone: 'danger' },
+  skipped: { label: 'Skipped', shape: 'dash', tone: 'quiet' },
+  cancelled: { label: 'Cancelled', shape: 'dash', tone: 'quiet' },
 };
 
 const RUN: Record<RunStatus, StatusMeta> = {
-  draft: { label: 'Draft', glyph: '◌', tone: 'grey' },
-  planning: { label: 'Planning', glyph: '●', tone: 'cyan' },
-  awaiting_plan_approval: { label: 'Awaiting plan approval', glyph: '◆', tone: 'amber' },
-  running: { label: 'Running', glyph: '●', tone: 'cyan' },
-  paused: { label: 'Paused', glyph: '‖', tone: 'amber' },
-  completed: { label: 'Completed', glyph: '✓', tone: 'green' },
-  failed: { label: 'Failed', glyph: '✕', tone: 'red' },
-  cancelled: { label: 'Cancelled', glyph: '–', tone: 'grey' },
+  draft: { label: 'Draft', shape: 'dashed', tone: 'quiet' },
+  planning: { label: 'Planning', shape: 'dot', tone: 'info' },
+  awaiting_plan_approval: { label: 'Awaiting review', shape: 'diamond', tone: 'review' },
+  running: { label: 'Running', shape: 'dot', tone: 'info' },
+  paused: { label: 'Paused', shape: 'pause', tone: 'warning' },
+  completed: { label: 'Completed', shape: 'check', tone: 'success' },
+  failed: { label: 'Failed', shape: 'cross', tone: 'danger' },
+  cancelled: { label: 'Cancelled', shape: 'dash', tone: 'quiet' },
 };
 
 const CLAIM: Record<ClaimStatus, StatusMeta> = {
-  proposed: { label: 'Proposed', glyph: '○', tone: 'grey' },
-  grounded: { label: 'Grounded', glyph: '◎', tone: 'slate' },
-  verified: { label: 'Verified', glyph: '✓', tone: 'green' },
-  probable: { label: 'Probable', glyph: '◐', tone: 'blue' },
-  contested: { label: 'Contested', glyph: '⇄', tone: 'amber' },
-  stale: { label: 'Stale', glyph: '◷', tone: 'grey' },
-  rejected: { label: 'Rejected', glyph: '✕', tone: 'red' },
+  proposed: { label: 'Proposed', shape: 'ring', tone: 'quiet' },
+  grounded: { label: 'Grounded', shape: 'target', tone: 'neutral' },
+  verified: { label: 'Verified', shape: 'check', tone: 'success' },
+  probable: { label: 'Probable', shape: 'half', tone: 'info' },
+  contested: { label: 'Contested', shape: 'triangle', tone: 'warning' },
+  stale: { label: 'Stale', shape: 'dashed', tone: 'quiet' },
+  rejected: { label: 'Rejected', shape: 'cross', tone: 'danger' },
 };
 
 const TABLES = { task: TASK, run: RUN, claim: CLAIM } as const;
 
 export function statusMeta(kind: keyof typeof TABLES, status: string): StatusMeta {
   const table: Record<string, StatusMeta> = TABLES[kind];
-  return table[status] ?? { label: `Unknown (${status})`, glyph: '?', tone: 'grey' };
+  return table[status] ?? { label: `Unknown (${status})`, shape: 'dashed', tone: 'quiet' };
+}
+
+/**
+ * A running run named for its stage when that is exact: Discovering while every task holding a live lease is a
+ * discovery task, Verifying while every one is a verification task. Otherwise the stored status's own label.
+ */
+export function runStatusMeta(
+  status: string,
+  tasks: readonly { type: string; status: string; lease_expires_at: string | null }[],
+  now: Date,
+): StatusMeta {
+  const meta = statusMeta('run', status);
+  if (status !== 'running') return meta;
+  const live = new Set(tasks.filter((t) => leaseState(t, now) === 'live').map((t) => t.type));
+  if (live.size !== 1) return meta;
+  if (live.has('discover_companies')) return { ...meta, label: 'Discovering' };
+  if (live.has('verify_entity')) return { ...meta, label: 'Verifying' };
+  return meta;
 }
 
 /** Runs whose state can change without the viewer doing anything: the page refreshes while they last. */

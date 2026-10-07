@@ -17,7 +17,7 @@ export default async function HomePage() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-4xl flex-col justify-center px-6 py-16">
-      <p className="font-mono text-xs tracking-[0.2em] text-accent-cyan uppercase">AI Operations Command Center</p>
+      <p className="font-mono text-xs tracking-[0.2em] text-ink-subtle uppercase">AI Operations Command Center</p>
       <h1 className="mt-4 max-w-2xl text-4xl font-semibold tracking-tight text-balance">
         Research you can trace back to the source.
       </h1>

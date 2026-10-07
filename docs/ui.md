@@ -64,14 +64,19 @@ open, the view says the item changed and links to the new version.
 
 ## Visual language
 
+Industrial Precision: the full standard is `.claude/skills/ai-ops-ui/SKILL.md`; the tokens live in one Tailwind
+`@theme` block in `apps/web/src/app/globals.css` (class names in brackets), with Tailwind's default palette cleared.
+
 | Token | Value |
 |---|---|
-| Base / panel / raised surfaces | graphite `#0B0D10` / `#12151A` / `#1A1E24`; borders `#232830` |
-| Text | primary `#E6E8EB`, secondary `#9AA3AE`, muted `#6B7480` |
-| Accent (focus, selection, live) | electric blue `#3BA7FF`, cyan `#22D3EE`, used sparingly |
-| Status | ready: slate; running: cyan; waiting approval: amber; succeeded: desaturated green; failed: red; skipped/cancelled: grey. Always paired with an icon and label, never colour alone |
-| Type | Geist Sans (or Inter) for UI; Geist Mono (or JetBrains Mono) for ids, hashes, tokens, costs |
-| Density | 13–14 px base, compact tables, 8 px grid |
+| Surfaces | canvas `#101113` (`canvas`), surface `#151719` (`panel`), surface 2 `#1B1D20` (`raised`), elevated `#202328` (`elevated`) |
+| Borders | `#2A2D31` (`line`), strong `#363A40` (`line-strong`); a divider before a card |
+| Text | primary `#F1F0EB` (`ink`), secondary `#A7A9A7` (`ink-muted`), tertiary `#70737A` (`ink-subtle`), disabled `#50535A` (`ink-disabled`) |
+| Accent | `#B8E64A` (`accent`), a signal: the primary action, active and selected state, progress, focus. Never a wash or a glow |
+| Status | verified/completed `#72C28B` (`ok`), awaiting review `#D6A24A` (`review`), warning `#E0A05A` (`warn`), failed `#D66B67` (`danger`), running `#7EA7D9` (`info`); quiet states in `ink-subtle`. Always a drawn glyph plus a Geist Mono label (`StatusBadge`), never colour alone; labels and mapping in `run-view.ts` |
+| Type | Geist for UI, Geist Mono for ids, timestamps, statuses and metadata; weights 400/500/600. Scale: display 48/52, page title 32/36 (26 on mobile), section 20/26 (18), body 14/21, small 13/18, metadata 12/16, mono labels 11 |
+| Geometry | 4 px spacing rhythm; radius 6 px controls and small panels, 8 px large panels, 10 px drawers and modals |
+| Shell | 216 px sidebar and 56 px top bar on desktop; below 1024 px a top bar with a full-height menu sheet |
 
 ## Motion
 
