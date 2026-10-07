@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "recordings": [
+    {
+      "hash": "123791703627e5f61f536b3683540c58ec8441a5403ee2b80cff4ef49ca8c3c2",
+      "recordedAt": "2026-10-07T18:10:22.902Z",
+      "providerAccount": "earthruntime",
+      "model": "gpt-oss-120b",
+      "response": {
+        "text": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states Tallow Grid raised EUR 2.5 million in seed funding led by Arctic Ventures, matching the claim.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly says Tallow Grid is headquartered in Helsinki, Finland, confirming the claim.\"\n    }\n  ]\n}",
+        "toolCalls": [],
+        "stopReason": "end_turn",
+        "usage": {
+          "inputTokens": 571,
+          "outputTokens": 130,
+          "reasoningTokens": null,
+          "cacheReadTokens": null,
+          "cacheWriteTokens": null
+        },
+        "cacheStatus": "not_supported",
+        "providerContent": {
+          "role": "assistant",
+          "content": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states Tallow Grid raised EUR 2.5 million in seed funding led by Arctic Ventures, matching the claim.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly says Tallow Grid is headquartered in Helsinki, Finland, confirming the claim.\"\n    }\n  ]\n}",
+          "tool_calls": []
+        }
+      }
+    }
+  ]
+}

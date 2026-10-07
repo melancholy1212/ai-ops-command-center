@@ -138,6 +138,14 @@ the pages search offered were roundups and listicles, and the model opened ones 
 problem is now retrieval and judgment, not loop control: query strategy, sources that list funding rounds, and a
 stronger model on the agent route.
 
+The live exit run for Phase 4 (2026-10-07, run `0c6a6d1b`), with outlet-first search and short outlet queries, went
+plan → discover → verify → report on real companies in 5 minutes for $0.054 and 10 tool calls. Discovery found three
+Nordic and Baltic pre-seed rounds on tech.eu (Palette, Retailgrid, Display.dev). All 9 quotes grounded (4 exact, 5
+normalized). Eight claims are `probable` with `SINGLE_SOURCE`, because every fact came from one outlet; one is rejected
+with `VALUE_NOT_IN_QUOTE`, because its quote (a headline) gave the amount but not the stage the claim asserted. The
+report ranks Palette and Retailgrid and excludes Display.dev for having no accepted funding round. Nothing reached
+`verified`: that needs a second, independent source, which the Phase 5 company agent and gap-fill are meant to add.
+
 Metrics now include the production grounding of every saved quote (`grounding`, `groundedQuoteRate`). The older
 `quoteMatchRate` is a loose substring check that undercounts. The re-recorded synthetic case shows 0.6 on it while all
 10 quotes ground (6 exact, 4 normalized).
@@ -161,6 +169,7 @@ It never records or updates a baseline.
 | `verify-outside-criteria` | A US headquarters is `OUTSIDE_CRITERIA`, company excluded; a Norwegian company ranked |
 | `verify-undisclosed-amount` | A null amount stands; an invented EUR 5M on the same quote is rejected (`VALUE_NOT_IN_QUOTE`) |
 | `verify-entity-resolution` | "Halcyon Robotics", "Halcyon Robotics AB" (with domain) and "HALCYON ROBOTICS AB" (without) are one company |
+| `verify-ungrounded-quote` | An invented quote and a paraphrase of a true sentence are both rejected (`QUOTE_NOT_FOUND`); a quote differing only in case grounds |
 
 The entity-resolution case found a real defect the first time it ran. A mention without a domain matched only
 companies without a domain, so a company split in two whenever the agent gave its domain on one claim and left it
@@ -179,9 +188,12 @@ out on another. Fixed: within a run, a bare name joins the namesake the run alre
 | `outside-europe` | A US-headquartered candidate is excluded with `OUTSIDE_CRITERIA` |
 | `undisclosed-amount` | No amount published: the round is claimed with a null amount; no invented number |
 | `entity-resolution` | "Quillmark" and "Quillmark Security Ltd" on one domain resolve to one company |
-| `ungrounded-quote` | A recorded model response cites a quote absent from the page: claim rejected with `QUOTE_NOT_FOUND` |
-| `budget-exhaustion` | A tiny budget pauses the run with a budget-extension approval; no work starts beyond budget |
-| `egress-private-address` | A search result pointing at `169.254.169.254` is refused with `URL_BLOCKED` |
+
+Three cases planned here are covered elsewhere: `ungrounded-quote` by `verify-ungrounded-quote`;
+`egress-private-address` by the synthetic discovery case (a search result at `169.254.169.254`, gated by
+`forbiddenHosts`) and `apps/mcp-server/src/egress.test.ts`; `budget-exhaustion` by the budget tests in
+`packages/core/src/workflow.integration.test.ts` and `apps/worker/src/agents.integration.test.ts`, which pause a run for
+an extension before or during work. Budget and egress are code paths, so tests pin them better than model evals.
 
 The case files and fixtures come from real runs where possible. Synthetic fixtures (like the fictional company used
 in the 2026-09-30 provider test) are marked as synthetic in the case metadata.

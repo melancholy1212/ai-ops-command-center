@@ -386,6 +386,74 @@
       "costUsdMicros": 63,
       "inputTokens": 660,
       "outputTokens": 249
+    },
+    "verify-ungrounded-quote": {
+      "kind": "verification",
+      "runStatus": "completed",
+      "failedTasks": [],
+      "companies": [
+        "Tallow Grid"
+      ],
+      "claims": [
+        {
+          "company": "Tallow Grid",
+          "attribute": "company.employee_count",
+          "statement": "Tallow Grid has 14-14 employees.",
+          "status": "rejected",
+          "confidence": null,
+          "confidenceScore": null,
+          "reasons": [
+            "QUOTE_NOT_FOUND"
+          ]
+        },
+        {
+          "company": "Tallow Grid",
+          "attribute": "company.funding_round",
+          "statement": "Tallow Grid announced a seed round of EUR 2,500,000 on 2026-07-15, led by Arctic Ventures.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Tallow Grid",
+          "attribute": "company.hq_city",
+          "statement": "Tallow Grid is based in Espoo.",
+          "status": "rejected",
+          "confidence": null,
+          "confidenceScore": null,
+          "reasons": [
+            "QUOTE_NOT_FOUND"
+          ]
+        },
+        {
+          "company": "Tallow Grid",
+          "attribute": "company.hq_country",
+          "statement": "Tallow Grid is headquartered in Finland.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        }
+      ],
+      "report": {
+        "ranked": [
+          "Tallow Grid"
+        ],
+        "excluded": []
+      },
+      "flaggedHosts": [],
+      "judgeVerdicts": {
+        "supports": 2
+      },
+      "llmCalls": 1,
+      "costUsdMicros": 40,
+      "inputTokens": 571,
+      "outputTokens": 130
     }
   }
 }

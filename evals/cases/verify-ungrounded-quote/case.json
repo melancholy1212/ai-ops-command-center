@@ -1,0 +1,156 @@
+{
+  "id": "verify-ungrounded-quote",
+  "title": "Quotes the page does not contain, invented or paraphrased, are rejected; a quote differing only in case grounds",
+  "tags": ["verification", "grounding"],
+  "scope": "verification",
+  "synthetic": true,
+  "modes": ["replay-all", "replay-tools"],
+  "input": {
+    "objective": "Find seed-stage software startups in the Nordics that raised money in the last 12 months.",
+    "briefOverride": {
+      "sectorKeywords": ["software"],
+      "countries": ["SE", "NO", "DK", "FI", "IS"],
+      "fundingWindow": {
+        "from": "2025-10-01",
+        "to": "2026-09-30"
+      },
+      "fundingStages": ["pre_seed", "seed"],
+      "maxCompanies": 5,
+      "peopleRoles": ["founder", "ceo"],
+      "outreach": {
+        "enabled": false,
+        "maxCompanies": 0
+      }
+    },
+    "frozenNow": "2026-09-30T12:00:00.000Z",
+    "claims": [
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Tallow Grid",
+          "domainHint": "tallowgrid.example"
+        },
+        "assertion": {
+          "attribute": "company.funding_round",
+          "value": {
+            "stage": "seed",
+            "amount": 2500000,
+            "currency": "EUR",
+            "announcedOn": "2026-07-15",
+            "leadInvestors": ["Arctic Ventures"],
+            "otherInvestors": []
+          }
+        },
+        "rawValue": "EUR 2.5 million seed round",
+        "evidence": [
+          {
+            "url": "https://helsinkitech.example/2026/07/15/tallow-grid-seed",
+            "quote": "Tallow Grid has raised EUR 2.5 million in seed funding led by Arctic Ventures"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Tallow Grid",
+          "domainHint": "tallowgrid.example"
+        },
+        "assertion": {
+          "attribute": "company.hq_country",
+          "value": {
+            "country": "FI"
+          }
+        },
+        "rawValue": "Helsinki, Finland",
+        "evidence": [
+          {
+            "url": "https://helsinkitech.example/2026/07/15/tallow-grid-seed",
+            "quote": "tallow grid is headquartered in helsinki, finland"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Tallow Grid",
+          "domainHint": "tallowgrid.example"
+        },
+        "assertion": {
+          "attribute": "company.hq_city",
+          "value": {
+            "city": "Espoo"
+          }
+        },
+        "rawValue": "Espoo",
+        "evidence": [
+          {
+            "url": "https://helsinkitech.example/2026/07/15/tallow-grid-seed",
+            "quote": "Tallow Grid runs its engineering office in Espoo, just west of Helsinki"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Tallow Grid",
+          "domainHint": "tallowgrid.example"
+        },
+        "assertion": {
+          "attribute": "company.employee_count",
+          "value": {
+            "min": 14,
+            "max": 14
+          }
+        },
+        "rawValue": "14 employees",
+        "evidence": [
+          {
+            "url": "https://helsinkitech.example/2026/07/15/tallow-grid-seed",
+            "quote": "The company now employs 14 people across Finland and Estonia"
+          }
+        ]
+      }
+    ]
+  },
+  "fixtures": {
+    "tools": "tools.json",
+    "model": "model.json"
+  },
+  "expect": {
+    "companies": ["Tallow Grid"],
+    "claims": [
+      {
+        "company": "Tallow Grid",
+        "attribute": "company.funding_round",
+        "status": "probable"
+      },
+      {
+        "company": "Tallow Grid",
+        "attribute": "company.hq_country",
+        "status": "probable",
+        "reasonsExclude": ["QUOTE_NOT_FOUND"]
+      },
+      {
+        "company": "Tallow Grid",
+        "attribute": "company.hq_city",
+        "status": "rejected",
+        "reasonsInclude": ["QUOTE_NOT_FOUND"]
+      },
+      {
+        "company": "Tallow Grid",
+        "attribute": "company.employee_count",
+        "status": "rejected",
+        "reasonsInclude": ["QUOTE_NOT_FOUND"]
+      }
+    ],
+    "report": {
+      "ranked": ["Tallow Grid"],
+      "excluded": []
+    },
+    "limits": {
+      "maxCostUsdMicros": 20000,
+      "maxLlmCalls": 6,
+      "maxWallClockMs": 120000
+    }
+  }
+}

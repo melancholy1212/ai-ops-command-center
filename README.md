@@ -16,8 +16,9 @@ Finding → Claim → Evidence → Source snapshot → exact quote
 
 ## Status
 
-**Phase 4 (evidence, verification, planner, report, run view) is built; its grounding and verification eval cases are
-still to come.** Each phase ends with typecheck, lint, tests, build and CI green before the next begins.
+**Phase 4 (evidence, verification, planner, report, run view) is complete: a live run on 2026-10-07 went plan →
+discover → verify → report on three real companies. Phase 5 (the full workflow) is next.** Each phase ends with
+typecheck, lint, tests, build and CI green before the next begins.
 
 | Area | Built | Not yet |
 |---|---|---|
@@ -29,7 +30,7 @@ still to come.** Each phase ends with typecheck, lint, tests, build and CI green
 | Worker | Scheduler (concurrent claims, heartbeats, time limits, lease recovery, graceful shutdown); agent runtime (bounded tool loop with code-enforced pacing and last-turn salvage, capability tokens, full telemetry); Research agent, planner, verifier; code-only report | Company and people agents, analyst, writer (Phase 5+) |
 | LLM layer | Route classes to model bindings, circuit breakers, Anthropic and OpenAI-compatible (Earthruntime) adapters, pricing, record/replay | — |
 | MCP server | Authenticated Streamable HTTP endpoint (per-execution EdDSA capability tokens), `web_search`, `fetch_page`, `get_source`; provenance-bound fetching through an SSRF-safe fetcher; audit and spend per call | `search_knowledge`, registry tools (Phase 5), workspace API keys |
-| Evals | Replay harness through the production code path; a synthetic discovery case and six verification cases (contested amounts, syndication, injection, criteria, undisclosed amounts, entity resolution) gated in CI; live real-web runs with full traces | People and outreach cases (Phase 5) |
+| Evals | Replay harness through the production code path; a synthetic discovery case and seven verification cases (contested amounts, syndication, injection, criteria, undisclosed amounts, entity resolution, ungrounded quotes) gated in CI; live real-web runs with full traces | People and outreach cases (Phase 5) |
 
 ## Run it locally
 
