@@ -21,13 +21,17 @@ import { claimFingerprint, normalizeCompanyName, registrableDomainOf } from '../
 import { renderStatement } from '../verification/statement';
 import { valueInText } from '../verification/values';
 
-export interface DiscoveryContext {
+/** Who writes proposed claims, and when. */
+export interface ClaimWriteContext {
   run: { id: string; workspace_id: string };
   taskId: string;
   executionId: string;
   agent: AgentType;
-  criteria: InterpretedCriteria;
   now: Date;
+}
+
+export interface DiscoveryContext extends ClaimWriteContext {
+  criteria: InterpretedCriteria;
 }
 
 export interface DiscoveredCompany {
@@ -46,12 +50,20 @@ export interface DiscoveryResult {
   rejected: number;
 }
 
-interface SourceRow {
+export interface SourceRow {
   id: string;
   text: string;
   published_at: Date | null;
   retrieved_at: Date;
   tier: string;
+}
+
+/** One proposal as written: its claim (new, or the existing one with the same fingerprint) and what grounding found. */
+export interface WrittenClaim {
+  claimId: string;
+  assertion: ClaimAssertion;
+  grounded: boolean;
+  tierB: boolean;
 }
 
 function subjectKey(claim: ProposedClaim): string | null {
@@ -160,13 +172,13 @@ function preScore(
   return score + attributes.size * 0.25;
 }
 
-export async function persistDiscovery(
+/** The snapshots the proposals cite, by id. A cited id that is not a saved source is simply absent. */
+export async function loadCitedSources(
   tx: WorkspaceTransaction,
-  ctx: DiscoveryContext,
   proposals: readonly ProposedClaim[],
-): Promise<DiscoveryResult> {
+): Promise<Map<string, SourceRow>> {
   const sourceIds = [...new Set(proposals.flatMap((p) => p.evidence.map((e) => e.sourceId)))];
-  const sources = new Map<string, SourceRow>(
+  return new Map<string, SourceRow>(
     sourceIds.length === 0
       ? []
       : (
@@ -177,6 +189,126 @@ export async function persistDiscovery(
             .execute()
         ).map((s) => [s.id, s]),
   );
+}
+
+/**
+ * Grounds every quote of one company's proposals against its saved snapshot and writes claims and evidence
+ * idempotently: the same claim proposed twice in a run (by any task) is one claim with more evidence, and a
+ * rejected claim that now has a grounded quote becomes grounded.
+ */
+export async function writeCompanyClaims(
+  tx: WorkspaceTransaction,
+  ctx: ClaimWriteContext,
+  company: { id: string; name: string },
+  proposed: readonly ProposedClaim[],
+  sources: ReadonlyMap<string, SourceRow>,
+): Promise<WrittenClaim[]> {
+  const written: WrittenClaim[] = [];
+  for (const proposal of proposed) {
+    const assertion = ClaimAssertion.parse(proposal.assertion);
+    const evidence = proposal.evidence
+      .map((e) => ({ ...e, source: sources.get(e.sourceId) }))
+      .filter((e): e is typeof e & { source: SourceRow } => e.source !== undefined);
+    if (evidence.length === 0) continue;
+    const checked = evidence.map((e) => {
+      const g = groundQuote(e.source.text, e.quote);
+      const first = g.spans[0];
+      const valueInQuote = first ? valueInText(assertion, `${e.quote} ${sentenceAround(e.source.text, first)}`) : null;
+      return { ...e, grounding: g, valueInQuote };
+    });
+    const anyGrounded = checked.some((c) => c.grounding.result !== 'not_found');
+    const reasons: VerificationReason[] = checked
+      .filter((c) => c.grounding.problem !== null)
+      .map((c) => ({
+        code: c.grounding.problem ?? 'QUOTE_NOT_FOUND',
+        detail:
+          c.grounding.problem === 'QUOTE_TOO_SHORT'
+            ? 'The quote is too short to be evidence.'
+            : 'The quote was not found in the saved source.',
+        evidenceIds: [],
+      }));
+    const published = checked.map((c) => c.source.published_at?.getTime()).filter((t): t is number => t !== undefined);
+    const fingerprint = claimFingerprint(company.id, assertion);
+    const status = anyGrounded ? 'grounded' : 'rejected';
+    const inserted = await tx
+      .insertInto('claims')
+      .values({
+        workspace_id: ctx.run.workspace_id,
+        run_id: ctx.run.id,
+        subject_company_id: company.id,
+        attribute: assertion.attribute,
+        value: toJson(assertion.value),
+        raw_value: proposal.rawValue,
+        statement: renderStatement(company.name, assertion),
+        fingerprint,
+        status,
+        verification: toJson({
+          reasons,
+          policy: null,
+          evaluatedAt: ctx.now.toISOString(),
+          evaluatedByTaskId: ctx.taskId as TaskId,
+        }),
+        proposed_by_agent: ctx.agent,
+        proposed_by_execution_id: ctx.executionId,
+        newest_published_at: published.length > 0 ? new Date(Math.max(...published)) : null,
+        oldest_published_at: published.length > 0 ? new Date(Math.min(...published)) : null,
+        newest_retrieved_at: new Date(Math.max(...checked.map((c) => c.source.retrieved_at.getTime()))),
+      })
+      .onConflict((oc) => oc.columns(['run_id', 'fingerprint']).doNothing())
+      .returning('id')
+      .executeTakeFirst();
+    // The same claim proposed twice in a run is one claim with more evidence.
+    const existing = inserted
+      ? null
+      : await tx
+          .selectFrom('claims')
+          .select(['id', 'status'])
+          .where('run_id', '=', ctx.run.id)
+          .where('fingerprint', '=', fingerprint)
+          .executeTakeFirstOrThrow();
+    const claimId = inserted?.id ?? existing?.id ?? '';
+    if (existing?.status === 'rejected' && anyGrounded) {
+      await tx
+        .updateTable('claims')
+        .set({ status: 'grounded', updated_at: ctx.now })
+        .where('id', '=', claimId)
+        .execute();
+    }
+    for (const c of checked) {
+      await tx
+        .insertInto('evidence')
+        .values({
+          workspace_id: ctx.run.workspace_id,
+          claim_id: claimId,
+          source_id: c.sourceId,
+          quote: c.quote,
+          quote_sha256: sha256Hex(c.quote),
+          grounding: c.grounding.result,
+          spans: toJson(c.grounding.spans),
+          value_in_quote: c.valueInQuote,
+          source_published_at: c.source.published_at,
+          source_retrieved_at: c.source.retrieved_at,
+          extracted_by_execution_id: ctx.executionId,
+        })
+        .onConflict((oc) => oc.columns(['claim_id', 'source_id', 'quote_sha256']).doNothing())
+        .execute();
+    }
+    written.push({
+      claimId,
+      assertion,
+      grounded: anyGrounded,
+      tierB: checked.some((c) => c.source.tier === 'A' || c.source.tier === 'B'),
+    });
+  }
+  return written;
+}
+
+export async function persistDiscovery(
+  tx: WorkspaceTransaction,
+  ctx: DiscoveryContext,
+  proposals: readonly ProposedClaim[],
+): Promise<DiscoveryResult> {
+  const sources = await loadCitedSources(tx, proposals);
 
   // Group proposals by company (registrable domain, else normalised name).
   const groups = new Map<string, { name: string; domain: string | null; claims: ProposedClaim[] }>();
@@ -204,108 +336,11 @@ export async function persistDiscovery(
     resolved.set(company.id, entry);
   }
   for (const { company, claims: proposed } of resolved.values()) {
-    const scored: { assertion: ClaimAssertion; grounded: boolean; tierB: boolean }[] = [];
-    for (const proposal of proposed) {
-      const assertion = ClaimAssertion.parse(proposal.assertion);
-      const evidence = proposal.evidence
-        .map((e) => ({ ...e, source: sources.get(e.sourceId) }))
-        .filter((e): e is typeof e & { source: SourceRow } => e.source !== undefined);
-      if (evidence.length === 0) continue;
-      const checked = evidence.map((e) => {
-        const g = groundQuote(e.source.text, e.quote);
-        const first = g.spans[0];
-        const valueInQuote = first
-          ? valueInText(assertion, `${e.quote} ${sentenceAround(e.source.text, first)}`)
-          : null;
-        return { ...e, grounding: g, valueInQuote };
-      });
-      const anyGrounded = checked.some((c) => c.grounding.result !== 'not_found');
-      const reasons: VerificationReason[] = checked
-        .filter((c) => c.grounding.problem !== null)
-        .map((c) => ({
-          code: c.grounding.problem ?? 'QUOTE_NOT_FOUND',
-          detail:
-            c.grounding.problem === 'QUOTE_TOO_SHORT'
-              ? 'The quote is too short to be evidence.'
-              : 'The quote was not found in the saved source.',
-          evidenceIds: [],
-        }));
-      const published = checked
-        .map((c) => c.source.published_at?.getTime())
-        .filter((t): t is number => t !== undefined);
-      const fingerprint = claimFingerprint(company.id, assertion);
-      const status = anyGrounded ? 'grounded' : 'rejected';
-      const inserted = await tx
-        .insertInto('claims')
-        .values({
-          workspace_id: ctx.run.workspace_id,
-          run_id: ctx.run.id,
-          subject_company_id: company.id,
-          attribute: assertion.attribute,
-          value: toJson(assertion.value),
-          raw_value: proposal.rawValue,
-          statement: renderStatement(company.name, assertion),
-          fingerprint,
-          status,
-          verification: toJson({
-            reasons,
-            policy: null,
-            evaluatedAt: ctx.now.toISOString(),
-            evaluatedByTaskId: ctx.taskId as TaskId,
-          }),
-          proposed_by_agent: ctx.agent,
-          proposed_by_execution_id: ctx.executionId,
-          newest_published_at: published.length > 0 ? new Date(Math.max(...published)) : null,
-          oldest_published_at: published.length > 0 ? new Date(Math.min(...published)) : null,
-          newest_retrieved_at: new Date(Math.max(...checked.map((c) => c.source.retrieved_at.getTime()))),
-        })
-        .onConflict((oc) => oc.columns(['run_id', 'fingerprint']).doNothing())
-        .returning('id')
-        .executeTakeFirst();
-      // The same claim proposed twice in a run is one claim with more evidence.
-      const existing = inserted
-        ? null
-        : await tx
-            .selectFrom('claims')
-            .select(['id', 'status'])
-            .where('run_id', '=', ctx.run.id)
-            .where('fingerprint', '=', fingerprint)
-            .executeTakeFirstOrThrow();
-      const claimId = inserted?.id ?? existing?.id ?? '';
-      if (existing?.status === 'rejected' && anyGrounded) {
-        await tx
-          .updateTable('claims')
-          .set({ status: 'grounded', updated_at: ctx.now })
-          .where('id', '=', claimId)
-          .execute();
-      }
-      for (const c of checked) {
-        await tx
-          .insertInto('evidence')
-          .values({
-            workspace_id: ctx.run.workspace_id,
-            claim_id: claimId,
-            source_id: c.sourceId,
-            quote: c.quote,
-            quote_sha256: sha256Hex(c.quote),
-            grounding: c.grounding.result,
-            spans: toJson(c.grounding.spans),
-            value_in_quote: c.valueInQuote,
-            source_published_at: c.source.published_at,
-            source_retrieved_at: c.source.retrieved_at,
-            extracted_by_execution_id: ctx.executionId,
-          })
-          .onConflict((oc) => oc.columns(['claim_id', 'source_id', 'quote_sha256']).doNothing())
-          .execute();
-      }
-      if (!claimIds.includes(claimId)) claimIds.push(claimId);
+    const scored = await writeCompanyClaims(tx, ctx, company, proposed, sources);
+    for (const w of scored) {
+      if (!claimIds.includes(w.claimId)) claimIds.push(w.claimId);
       // Counted per claim, not per proposal: a claim proposed twice is one claim.
-      groundedById.set(claimId, (groundedById.get(claimId) ?? false) || anyGrounded);
-      scored.push({
-        assertion,
-        grounded: anyGrounded,
-        tierB: checked.some((c) => c.source.tier === 'A' || c.source.tier === 'B'),
-      });
+      groundedById.set(w.claimId, (groundedById.get(w.claimId) ?? false) || w.grounded);
     }
     companies.push({
       id: company.id as CompanyId,
@@ -320,20 +355,36 @@ export async function persistDiscovery(
 }
 
 /**
- * Workflow version 1 (Phase 4): the top candidates with grounded evidence get a verification task; the
- * report waits for all of them (soft join). Profiles, people, gap-fill, ranking and outreach join in
- * version 2 (Phase 5).
+ * The graph after discovery (docs/workflow.md#expansion-rules-code-not-models), for the run's workflow version. The
+ * top candidates with grounded evidence get a verification task, and the report waits for all of them (soft join).
+ * Version 2 profiles each company first; verification depends on the profile (hard: no profile, no verification, and
+ * the report excludes the company with the reason). People, gap-fill, ranking and outreach join in later versions.
  */
-export function discoveryExpansion(companies: readonly DiscoveredCompany[], maxCompanies: number): ExpansionPlan {
+export function discoveryExpansion(
+  companies: readonly DiscoveredCompany[],
+  maxCompanies: number,
+  workflowVersion: number,
+): ExpansionPlan {
   const chosen = companies.filter((c) => c.groundedClaims > 0).slice(0, maxCompanies);
+  const profiles = workflowVersion >= 2;
   return {
     tasks: [
+      ...(profiles
+        ? chosen.map((c) => ({
+            ref: `profile:${c.id}`,
+            type: 'profile_company' as const,
+            input: { type: 'profile_company' as const, companyId: c.id },
+            idempotencyKey: `profile_company:${c.id}`,
+            priority: 70,
+          }))
+        : []),
       ...chosen.map((c) => ({
         ref: `verify:${c.id}`,
         type: 'verify_entity' as const,
         input: { type: 'verify_entity' as const, companyId: c.id, round: 1 as const },
         idempotencyKey: `verify_entity:${c.id}:r1`,
         priority: 60,
+        ...(profiles ? { dependsOn: [{ ref: `profile:${c.id}`, mode: 'hard' as const }] } : {}),
       })),
       {
         ref: 'report',

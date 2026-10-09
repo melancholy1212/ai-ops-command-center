@@ -241,21 +241,14 @@ export async function completeTask(
 
     const written = outcome.write ? await outcome.write(tx) : {};
     const plan = typeof outcome.expand === 'function' ? outcome.expand(written) : outcome.expand;
+    const summary = typeof outcome.summary === 'function' ? outcome.summary() : outcome.summary;
     const taskIds = plan ? await createTasks(tx, run, plan, task.id, 'expansion', actor) : [];
     const output = TaskOutputRef.parse({
       executionId: null,
       created: { ...EMPTY_REFS, ...written, taskIds: [...(written.taskIds ?? []), ...taskIds] },
-      summary: outcome.summary ?? {},
+      summary: summary ?? {},
     });
-    await setTaskStatus(
-      tx,
-      run,
-      task,
-      actor,
-      'succeeded',
-      { output: toJson(output), ...CLEARED_LEASE },
-      outcome.summary,
-    );
+    await setTaskStatus(tx, run, task, actor, 'succeeded', { output: toJson(output), ...CLEARED_LEASE }, summary);
     await settleRun(tx, run, actor);
     await recomputeRunStatus(tx, run, actor);
   });

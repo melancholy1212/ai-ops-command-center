@@ -91,6 +91,12 @@ export const VerificationCase = z.strictObject({
     briefOverride: InterpretedCriteria,
     frozenNow: Timestamp,
     claims: z.array(CaseClaim).min(1).max(30),
+    /**
+     * What the company's own pages say (workflow version 2): the scripted profile of each company opens these
+     * claims' pages and proposes them about the company it profiles. Pages must be reachable as links from the
+     * discovery pages, as on the web; the subject name picks the company.
+     */
+    profileClaims: z.array(CaseClaim).max(30).default([]),
   }),
   fixtures: z.strictObject({ tools: z.string().min(1), model: z.string().min(1) }),
   expect: z.strictObject({

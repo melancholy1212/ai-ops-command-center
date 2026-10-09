@@ -454,6 +454,66 @@
       "costUsdMicros": 40,
       "inputTokens": 571,
       "outputTokens": 130
+    },
+    "verify-own-site-authority": {
+      "kind": "verification",
+      "runStatus": "completed",
+      "failedTasks": [],
+      "companies": [
+        "Brackenfield Labs"
+      ],
+      "claims": [
+        {
+          "company": "Brackenfield Labs",
+          "attribute": "company.funding_round",
+          "statement": "Brackenfield Labs announced a seed round of EUR 1,800,000 on 2026-06-02, led by Fjord Capital.",
+          "status": "verified",
+          "confidence": "high",
+          "confidenceScore": 0.95,
+          "reasons": [
+            "AUTHORITATIVE_SOURCE",
+            "INDEPENDENT_SOURCES"
+          ]
+        },
+        {
+          "company": "Brackenfield Labs",
+          "attribute": "company.hq_country",
+          "statement": "Brackenfield Labs is headquartered in Norway.",
+          "status": "verified",
+          "confidence": "high",
+          "confidenceScore": 0.95,
+          "reasons": [
+            "AUTHORITATIVE_SOURCE",
+            "INDEPENDENT_SOURCES"
+          ]
+        },
+        {
+          "company": "Brackenfield Labs",
+          "attribute": "company.sector",
+          "statement": "Brackenfield Labs works in route-planning software.",
+          "status": "verified",
+          "confidence": "high",
+          "confidenceScore": 0.9,
+          "reasons": [
+            "AUTHORITATIVE_SOURCE",
+            "SINGLE_SOURCE"
+          ]
+        }
+      ],
+      "report": {
+        "ranked": [
+          "Brackenfield Labs"
+        ],
+        "excluded": []
+      },
+      "flaggedHosts": [],
+      "judgeVerdicts": {
+        "supports": 5
+      },
+      "llmCalls": 1,
+      "costUsdMicros": 82,
+      "inputTokens": 994,
+      "outputTokens": 305
     }
   }
 }

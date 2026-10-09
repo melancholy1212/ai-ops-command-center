@@ -90,7 +90,15 @@ post-processing. No tools, no loop.
 ### Company Intelligence
 - **Task:** `profile_company`. Structured providers first (`lookup_company` for registry identity), then the web.
 - **Output:** `ProposedClaim[]` for company attributes, plus registry identifiers.
-- **Limits:** 10 turns / 25 tool calls.
+- **Limits:** 10 turns / 25 tool calls, `web_search` paced at 2 per page read.
+- **Implemented** as `company.profile@1`, web only (registries come with `lookup_company`). It gets the company, the
+  statements discovery saved, the evidence pages, and the company's site when an article links to it. It proposes
+  claims with the subject `{"kind": "company", "companyId"}`; claims about anyone else are sent back once, then dropped.
+- **Code after:** proposals pinned to the company, grounded and written like discovery's; the domain recorded only
+  from evidence ([provenance.md](provenance.md#which-site-is-the-companys-own)), never from the agent's say-so.
+- **Website claims:** a page describing the company does not show who owns the page. The verifier rightly refused
+  such quotes as evidence for "X's website is U" in the 2026-10-07 eval recording, so the agent proposes
+  `company.website` only when a page states the address in words; which site is the company's is code's decision.
 
 ### People Discovery
 - **Task:** `find_people`. Registries first (`find_company_people`), then the company's own team page and press.

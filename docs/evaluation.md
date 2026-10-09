@@ -154,7 +154,10 @@ Metrics now include the production grounding of every saved quote (`grounding`, 
 
 A second case scope, `verification`, tests what happens after discovery without paying for a research agent. The
 Research agent is scripted: it opens every page of the case through the real `fetch_page` (snapshots, tiers and
-injection flags come from the real MCP pipeline) and proposes the case's claims. Grounding, entity resolution, the
+injection flags come from the real MCP pipeline) and proposes the case's claims. Cases run workflow version 2, so each
+company is profiled by a scripted Company Intelligence agent: it opens the pages of the case's `profileClaims` about
+that company (reachable only as links from the discovery pages, as on the web) and proposes them; with none, the
+profile is empty. Which site is the company's, and so what counts as its own word, is decided by the real code. Grounding, entity resolution, the
 verifier model, policy, confidence and the report run for real. Only the verifier's calls are recorded, about 1k
 tokens per case. Expectations name what code decides: claim statuses, reason codes, the report's ranking and
 exclusions, flagged hosts. Confidence is asserted only where the verifier's wording cannot change it.
@@ -169,6 +172,7 @@ It never records or updates a baseline.
 | `verify-outside-criteria` | A US headquarters is `OUTSIDE_CRITERIA`, company excluded; a Norwegian company ranked |
 | `verify-undisclosed-amount` | A null amount stands; an invented EUR 5M on the same quote is rejected (`VALUE_NOT_IN_QUOTE`) |
 | `verify-entity-resolution` | "Halcyon Robotics", "Halcyon Robotics AB" (with domain) and "HALCYON ROBOTICS AB" (without) are one company |
+| `verify-own-site-authority` | An article links the company's name to its site (and to LinkedIn, ignored): the profile reads the homepage, the domain is recorded, and the round (`AUTHORITATIVE_SOURCE`), headquarters (`INDEPENDENT_SOURCES`) and sector verify |
 | `verify-ungrounded-quote` | An invented quote and a paraphrase of a true sentence are both rejected (`QUOTE_NOT_FOUND`); a quote differing only in case grounds |
 
 The entity-resolution case found a real defect the first time it ran. A mention without a domain matched only

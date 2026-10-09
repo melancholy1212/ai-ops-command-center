@@ -14,9 +14,29 @@ plan_run ─► approve_plan ─► discover_companies
          rank_and_analyze ─► draft_outreach × K ─► approve_outreach ─► compile_report ─► done
 ```
 
+## Workflow version 2 (implemented, Phase 5)
+
+New runs get version 2 (`CURRENT_WORKFLOW_VERSION`). A run keeps the version it was created with, so the graph of
+a run in flight never changes shape. Version 2 adds a company profile before each verification:
+
+```
+plan_run ─► approve_plan ─► discover_companies ─► (profile_company ─► verify_entity) × top N ─► compile_report
+                                                  hard: no profile, no verification     soft join: every verify
+```
+
+- `profile_company` (Company Intelligence agent, web only until `lookup_company` exists): before the agent runs, code
+  looks for the company's own website among the links on the pages that are already evidence for it (an article
+  that links the company's name to its site). The agent reads the site and proposes claims about the company,
+  restating discovery's facts from the company's own pages where it can: that quote is the independent second
+  source verification needs. Code pins every proposal to the profiled company (others are dropped), grounds and
+  writes them exactly like discovery's, and records the company's domain only when evidence ties a site to it
+  ([provenance.md](provenance.md#which-site-is-the-companys-own)). The task output says which rule recorded it.
+- A profile that fails permanently skips the company's verification; the report excludes the company and names the
+  failed profile as the reason.
+
 ## Workflow version 1 (implemented, Phase 4)
 
-Runs record their `workflow_version`. Version 1 is the part of the graph above that exists today:
+Runs created before version 2 keep this graph. Version 1 is the part of the graph above that existed in Phase 4:
 
 ```
 plan_run ─► approve_plan ─► discover_companies ─► verify_entity × top N ─► compile_report

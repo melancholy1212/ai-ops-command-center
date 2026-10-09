@@ -164,6 +164,13 @@ export const WORKFLOW_LIMITS = {
   maxParallelTasksPerRun: 4,
 } as const;
 
+/**
+ * The workflow version new runs get (docs/workflow.md). A run keeps the version it was created with, so the graph
+ * of a run in flight never changes shape. 1: discover → verify → report. 2: a company profile before each
+ * verification.
+ */
+export const CURRENT_WORKFLOW_VERSION = 2;
+
 /** The run is complete when this task succeeds. */
 export const FINAL_TASK_TYPE = 'compile_report' satisfies TaskType;
 

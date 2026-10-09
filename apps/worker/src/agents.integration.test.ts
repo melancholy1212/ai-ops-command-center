@@ -8,7 +8,7 @@ import { createRun, DEFAULT_RUN_BUDGET, saveBrief } from '@aoc/core';
 import { createTasks, lockRun, recomputeRunStatus, settleRun } from '@aoc/core/testing';
 import { withWorkspace } from '@aoc/db';
 import { createTestHarness, type TestHarness, type TestTenant } from '@aoc/db/testing';
-import { createScriptedProvider, LlmRouter, type ScriptedTurn } from '@aoc/llm';
+import { createScriptedProvider, LlmRouter, type LlmRequest, type LlmResponse, type ScriptedTurn } from '@aoc/llm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { ToolClient } from './agents/tool-client';
 import { createHandlers } from './handlers';
@@ -16,6 +16,10 @@ import { createScheduler, type Scheduler } from './scheduler';
 
 const SOURCE = '5f0a3c1e-0000-4000-8000-0000000000aa';
 const QUOTE = 'Northwind Climate, the Stockholm carbon accounting startup, raised a seed round';
+/** The company's own homepage, which the profile reads. */
+const SITE = '5f0a3c1e-0000-4000-8000-0000000000bb';
+const SITE_URL = 'https://northwind.example/';
+const SITE_QUOTE = 'Northwind Climate AB is headquartered in Stockholm, Sweden';
 const silent = createLogger('agents-test', 'silent');
 
 let h: TestHarness;
@@ -103,16 +107,34 @@ async function saveSource(): Promise<void> {
   );
 }
 
+/** The company's homepage snapshot, saved as the MCP server would have saved it. */
+async function saveSite(): Promise<void> {
+  const text = `${SITE_QUOTE}. We build carbon accounting software for manufacturers.`;
+  await h.admin.query(
+    `insert into public.sources (id, workspace_id, requested_url, final_url, final_url_hash, host, registrable_domain,
+       source_type, tier, origin, retrieved_at, http, published_at_method, raw_sha256, content_sha256, text, text_length,
+       truncated, extraction_method, extractor_version, fetched_by_tool_call_id, published_at)
+     values ($1, $2, $6, $6, $3, 'northwind.example', 'northwind.example', 'company_website', 'C',
+       '{"kind":"page_link"}', now(), '{"status":200}', 'none', $3, $4, $5, char_length($5), false,
+       'readability_html', 'extract@1', gen_random_uuid(), null)
+     on conflict (id) do nothing`,
+    [SITE, tenant.workspaceId, 'c'.repeat(64), 'd'.repeat(64), text, SITE_URL],
+  );
+}
+
 const fakeTools = (): ToolClient => ({
   tools: [
     { name: 'web_search', description: 'search', inputSchema: { type: 'object' } },
     { name: 'fetch_page', description: 'fetch', inputSchema: { type: 'object' } },
+    { name: 'get_source', description: 'read a saved source', inputSchema: { type: 'object' } },
   ],
-  call: (name) =>
+  call: (name, args) =>
     Promise.resolve(
-      name === 'fetch_page'
-        ? { ok: true, output: { sourceId: SOURCE, text: `${QUOTE}.`, offset: 0, totalChars: 80, links: [] } }
-        : { ok: true, output: { results: [{ url: 'https://news.example/a', rank: 0 }] } },
+      name === 'fetch_page' && (args as { url?: string }).url === SITE_URL
+        ? { ok: true, output: { sourceId: SITE, text: `${SITE_QUOTE}.`, offset: 0, totalChars: 80, links: [] } }
+        : name === 'fetch_page'
+          ? { ok: true, output: { sourceId: SOURCE, text: `${QUOTE}.`, offset: 0, totalChars: 80, links: [] } }
+          : { ok: true, output: { results: [{ url: 'https://news.example/a', rank: 0 }] } },
     ),
   close: () => Promise.resolve(),
 });
@@ -134,6 +156,27 @@ const call = (name: string, args: unknown, n: number, inputTokens = 10_000): Scr
   toolCalls: [{ id: `call_${String(n)}`, name, argumentsJson: JSON.stringify(args) }],
   usage: usage(inputTokens),
 });
+
+/** A profile's result, which names the company by the id its task message gives, as a model would. */
+const submitProfile =
+  (claims: (companyId: string) => unknown[]): ScriptedTurn =>
+  (request: LlmRequest): LlmResponse => {
+    const first = request.messages[0];
+    const companyId = /companyId ([0-9a-f-]{36})/.exec(first?.role === 'user' ? first.content : '')?.[1] ?? '';
+    const toolCalls = [
+      { id: 'call_profile', name: 'submit_result', argumentsJson: JSON.stringify({ claims: claims(companyId) }) },
+    ];
+    return {
+      text: null,
+      toolCalls,
+      stopReason: 'tool_use',
+      usage: usage(10_000),
+      cacheStatus: 'not_supported',
+      providerContent: { role: 'assistant', content: null, tool_calls: toolCalls },
+      latencyMs: 1,
+      retryCount: 0,
+    };
+  };
 
 function start(turns: ScriptedTurn[]) {
   const scheduler = createScheduler({
@@ -192,6 +235,8 @@ describe('discovery agent', () => {
       call('web_search', { query: 'Nordic climate software seed round' }, 1),
       call('fetch_page', { url: 'https://news.example/a' }, 2),
       call('submit_result', { claims: [claim] }, 3),
+      // The profile (workflow version 2) finds nothing to add.
+      call('submit_result', { claims: [] }, 4),
       // The verifier's structured answer for the one grounded quote.
       {
         text: JSON.stringify({
@@ -279,7 +324,7 @@ describe('discovery agent', () => {
       `select type, status from public.tasks where run_id = $1 and type <> 'discover_companies' order by type`,
       [runId],
     );
-    expect(created.map((t) => t.type)).toEqual(['compile_report', 'verify_entity']);
+    expect(created.map((t) => t.type)).toEqual(['compile_report', 'profile_company', 'verify_entity']);
     // The report waits for verification (softly: a failed verification still gets reported).
     const { rows: edges } = await h.admin.query<{ mode: string; on: string }>(
       `select d.mode, p.type as on from public.task_dependencies d join public.tasks t on t.id = d.task_id
@@ -287,6 +332,13 @@ describe('discovery agent', () => {
       [runId],
     );
     expect(edges).toEqual([{ mode: 'soft', on: 'verify_entity' }]);
+    // Verification needs the profile (hard: no profile, no verification).
+    const { rows: verifyEdges } = await h.admin.query<{ mode: string; on: string }>(
+      `select d.mode, p.type as on from public.task_dependencies d join public.tasks t on t.id = d.task_id
+       join public.tasks p on p.id = d.depends_on_task_id where t.run_id = $1 and t.type = 'verify_entity'`,
+      [runId],
+    );
+    expect(verifyEdges).toEqual([{ mode: 'hard', on: 'profile_company' }]);
 
     // Verification runs next: the judge's verdict, policy v1 and confidence, then coverage gaps.
     expect(await waitForTask(runId, ['succeeded', 'failed'], 'verify_entity')).toBe('succeeded');
@@ -307,7 +359,8 @@ describe('discovery agent', () => {
       [runId],
     );
     expect(verifierRuns).toEqual([{ agent: 'verifier', status: 'succeeded', llm_calls: 1 }]);
-    // The run's spend: three discovery calls (3 x 385) and the verifier's (2,000 x 0.03 + 500 x 0.17 = 145).
+    // The run's spend: three discovery calls and one profile call (4 x 385), and the verifier's
+    // (2,000 x 0.03 + 500 x 0.17 = 145).
     const { rows: run } = await h.admin.query<{
       spend_cost_usd_micros: string;
       spend_llm_input_tokens: string;
@@ -316,10 +369,65 @@ describe('discovery agent', () => {
       runId,
     ]);
     expect(run[0]).toEqual({
-      spend_cost_usd_micros: '1300',
-      spend_llm_input_tokens: '32000',
-      spend_llm_output_tokens: '2000',
+      spend_cost_usd_micros: '1685',
+      spend_llm_input_tokens: '42000',
+      spend_llm_output_tokens: '2500',
     });
+    expect(await waitForTask(runId, ['succeeded', 'failed'], 'compile_report')).toBe('succeeded');
+  }, 30_000);
+
+  it('profiles the company from its own site, and verification counts the site as a second source', async () => {
+    await saveSource();
+    await saveSite();
+    const runId = await discoveryRun();
+    start([
+      call('web_search', { query: 'Nordic climate software seed round' }, 1),
+      call('fetch_page', { url: 'https://news.example/a' }, 2),
+      call('submit_result', { claims: [claim] }, 3),
+      call('fetch_page', { url: SITE_URL }, 4),
+      submitProfile((companyId) => [
+        {
+          subject: { kind: 'company', companyId },
+          assertion: { attribute: 'company.hq_country', value: { country: 'SE' } },
+          rawValue: 'Stockholm, Sweden',
+          evidence: [{ sourceId: SITE, quote: SITE_QUOTE }],
+        },
+      ]),
+      {
+        text: JSON.stringify({
+          verdicts: [
+            { index: 0, verdict: 'supports', reason: 'The article places it in Stockholm.' },
+            { index: 1, verdict: 'supports', reason: 'The company says so.' },
+          ],
+        }),
+        usage: usage(2_000),
+      },
+    ]);
+    expect(await waitForTask(runId, ['succeeded', 'failed'], 'profile_company')).toBe('succeeded');
+    const { rows: profile } = await h.admin.query<{ output: { summary: unknown } }>(
+      "select output from public.tasks where run_id = $1 and type = 'profile_company'",
+      [runId],
+    );
+    // Discovery gave the domain, so the profile records none.
+    expect(profile[0]?.output.summary).toEqual({
+      claimsProposed: 1,
+      grounded: 1,
+      rejected: 0,
+      dropped: 0,
+      domain: '',
+      domainRule: '',
+      domainNotRecorded: '',
+    });
+    expect(await waitForTask(runId, ['succeeded', 'failed'], 'verify_entity')).toBe('succeeded');
+    const executions = await execution(runId);
+    expect(executions.map((e) => e.agent_version)).toEqual(['research.discovery@6', 'company.profile@1', 'verifier@1']);
+    const { rows: verified } = await h.admin.query<{ status: string; evidence: string }>(
+      `select c.status, count(e.id)::text as evidence from public.claims c join public.evidence e on e.claim_id = c.id
+       where c.run_id = $1 group by c.status`,
+      [runId],
+    );
+    // A news article and the company's own page: two independent sources, one self-published. Verified.
+    expect(verified).toEqual([{ status: 'verified', evidence: '2' }]);
     expect(await waitForTask(runId, ['succeeded', 'failed'], 'compile_report')).toBe('succeeded');
   }, 30_000);
 

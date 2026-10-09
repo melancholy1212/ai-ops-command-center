@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "recordings": [
+    {
+      "hash": "729a53ced8d46e290f278c05460b2a51800309378fa470e9d4492e2271afb19a",
+      "recordedAt": "2026-10-07T18:58:35.064Z",
+      "providerAccount": "earthruntime",
+      "model": "gpt-oss-120b",
+      "response": {
+        "text": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states Brackenfield Labs raised EUR 1.8 million in a seed round led by Fjord Capital.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote confirms the same seed amount and lead investor; the added date does not contradict the claim.\"\n    },\n    {\n      \"index\": 2,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote identifies Brackenfield Labs as based in Oslo, Norway, matching the headquarters claim.\"\n    },\n    {\n      \"index\": 3,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly says Brackenfield Labs is headquartered in Oslo, Norway.\"\n    },\n    {\n      \"index\": 4,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote states the company builds route‑planning software, which aligns with the claim.\"\n    }\n  ]\n}",
+        "toolCalls": [],
+        "stopReason": "end_turn",
+        "usage": {
+          "inputTokens": 994,
+          "outputTokens": 305,
+          "reasoningTokens": null,
+          "cacheReadTokens": null,
+          "cacheWriteTokens": null
+        },
+        "cacheStatus": "not_supported",
+        "providerContent": {
+          "role": "assistant",
+          "content": "{\n  \"verdicts\": [\n    {\n      \"index\": 0,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote explicitly states Brackenfield Labs raised EUR 1.8 million in a seed round led by Fjord Capital.\"\n    },\n    {\n      \"index\": 1,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote confirms the same seed amount and lead investor; the added date does not contradict the claim.\"\n    },\n    {\n      \"index\": 2,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote identifies Brackenfield Labs as based in Oslo, Norway, matching the headquarters claim.\"\n    },\n    {\n      \"index\": 3,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote directly says Brackenfield Labs is headquartered in Oslo, Norway.\"\n    },\n    {\n      \"index\": 4,\n      \"verdict\": \"supports\",\n      \"reason\": \"The quote states the company builds route‑planning software, which aligns with the claim.\"\n    }\n  ]\n}",
+          "tool_calls": []
+        }
+      }
+    }
+  ]
+}

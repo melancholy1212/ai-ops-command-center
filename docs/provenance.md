@@ -87,6 +87,25 @@ Raw HTML is not stored.
 Authority is attribute-relative: the company's own site is tier A for its funding announcement and team page,
 not for claims about its competitors.
 
+### Which site is the company's own
+
+The company's own site is tier A for self-reported facts, so deciding which site that is decides what can verify on
+the company's word. A model never decides it. During a profile (workflow version 2), code records a company's
+domain, when it has none, by one of two rules over the run's rows:
+
+- **Linked from evidence:** a page that is grounded evidence for the company links to one site of another domain
+  under the company's name (the anchor text normalises to the company's name). Links to platforms (LinkedIn, X,
+  Crunchbase and the like) never count, and two different sites linked under the name count as none.
+- **Named in evidence:** a grounded `company.website` claim points at a domain that an evidence page on another
+  domain writes out in its text ("Display.dev raises €470,000" names `display.dev`). Only pages that were evidence
+  before the profile count, because they are what identified the company; a page the profiler found by searching
+  the name may be about a namesake.
+
+A site the agent found by searching the name, and whose own words describe the company, gets no domain: a namesake's
+site describes a company with that name too. A domain another company already holds is not taken; the task output
+says so. Discovery still sets a domain from the agent's `domainHint` (Phase 4 behaviour), which these rules do not
+yet cover.
+
 ## Verification
 
 Implemented in Phase 4: `packages/core/src/verification` (normalisation with an offset map, grounding, value-in-quote,

@@ -1,6 +1,7 @@
 /**
- * Task handlers by type. The scheduler claims only the types listed here. Phase 3 registers discovery (the
- * Research agent); the planner, verification and the other agents follow in Phases 4 and 5.
+ * Task handlers by type. The scheduler claims only the types listed here: the planner and its gate, discovery (the
+ * Research agent), company profiles (the Company Intelligence agent), verification and the report. People,
+ * gap-fill, ranking and outreach follow in Phase 5.
  */
 import { createHash } from 'node:crypto';
 import { Budget, ResearchBrief, type ClaimId, type ExecutionId, type SourceId } from '@aoc/contracts';
@@ -14,7 +15,10 @@ import {
   discoveryExpansion,
   judgeItems,
   loadCompanyForVerification,
+  loadCompanyToProfile,
+  persistProfile,
   type JudgeVerdictRecord,
+  type ProfileResult,
   evaluateBudget,
   persistDiscovery,
   TaskFailure,
@@ -28,6 +32,7 @@ import { promptHash, runToolLoop, type AgentRole } from './agents/loop';
 import { ExecutionRecorder } from './agents/recorder';
 import type { TokenMinter } from './agents/tokens';
 import type { ToolClient } from './agents/tool-client';
+import { profileRole } from './roles/company';
 import { discoveryRole, type DiscoveryOutput } from './roles/research';
 import { VERIFIER_BATCH_SIZE, verifierRole } from './roles/verifier';
 import { plannerRole } from './roles/planner';
@@ -208,7 +213,68 @@ export function createHandlers(deps: AgentDependencies): HandlerRegistry {
             sourceIds: discovered.sourceIds as SourceId[],
           };
         },
-        expand: () => discoveryExpansion(discovered?.companies ?? [], criteria.maxCompanies),
+        expand: () => discoveryExpansion(discovered?.companies ?? [], criteria.maxCompanies, run.workflow_version),
+      };
+    },
+
+    async profile_company({ claim, input, db, signal }) {
+      if (input.type !== 'profile_company')
+        throw new TaskFailure('INTERNAL_ERROR', 'profile_company received the wrong input.');
+      const company = await withWorkspace(db, claim.workspaceId, (tx) =>
+        loadCompanyToProfile(tx, claim.runId, input.companyId),
+      );
+      const { output, recorder } = await runAgent(
+        deps,
+        db,
+        claim,
+        profileRole,
+        {
+          company: {
+            id: company.id,
+            name: company.name,
+            domain: company.primaryDomain,
+            website: company.website?.url ?? null,
+          },
+          knownFacts: company.knownFacts,
+          evidencePages: company.evidencePages,
+          today: today(),
+        },
+        signal,
+      );
+      let profile: ProfileResult | null = null;
+      return {
+        kind: 'succeeded',
+        summary: () => ({
+          claimsProposed: output.claims.length,
+          grounded: profile?.grounded ?? 0,
+          rejected: profile?.rejected ?? 0,
+          dropped: profile?.dropped ?? 0,
+          domain: profile?.domain?.value ?? '',
+          domainRule: profile?.domain?.rule ?? '',
+          domainNotRecorded: (profile?.domainNotRecorded ?? '').slice(0, 200),
+        }),
+        // Code pins the proposals to this company, grounds and saves them, and records the company's domain when
+        // the evidence ties its site to it. The output says which rule did, so the domain can be traced.
+        write: async (tx) => {
+          await recorder.succeedInTx(tx, output);
+          profile = await persistProfile(
+            tx,
+            {
+              run: { id: claim.runId, workspace_id: claim.workspaceId },
+              taskId: claim.taskId,
+              executionId: recorder.executionId,
+              agent: 'company_intelligence',
+              now: (deps.now ?? (() => new Date()))(),
+            },
+            input.companyId,
+            output.claims,
+          );
+          return {
+            companyIds: [input.companyId],
+            claimIds: profile.claimIds as ClaimId[],
+            sourceIds: profile.sourceIds as SourceId[],
+          };
+        },
       };
     },
 

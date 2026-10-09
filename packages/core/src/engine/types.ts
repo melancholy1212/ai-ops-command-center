@@ -62,7 +62,8 @@ export type CreatedRefs = TaskOutputRef['created'];
 export type TaskOutcome =
   | {
       kind: 'succeeded';
-      summary?: z.infer<typeof SmallSummary>;
+      /** Static, or computed after `write` (e.g. what the domain write decided). */
+      summary?: z.infer<typeof SmallSummary> | (() => z.infer<typeof SmallSummary>);
       write?: (tx: WorkspaceTransaction) => Promise<Partial<CreatedRefs>>;
       /** Static, or computed from what `write` created (e.g. one verification task per company it saved). */
       expand?: ExpansionPlan | ((written: Partial<CreatedRefs>) => ExpansionPlan);

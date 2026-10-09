@@ -1,5 +1,5 @@
-// The whole workflow version 1 through the real engine, scheduler, handlers and database: plan -> human
-// approval -> discover -> verify -> report. Only the model and the MCP session are scripted.
+// The whole workflow (version 2) through the real engine, scheduler, handlers and database: plan -> human
+// approval -> discover -> profile -> verify -> report. Only the model and the MCP session are scripted.
 import { randomUUID } from 'node:crypto';
 import { createLogger } from '@aoc/config/logger';
 import type { ApprovalId, RunId, SourceId } from '@aoc/contracts';
@@ -97,6 +97,8 @@ function script(): ScriptedTurn[] {
         },
       ],
     }),
+    // profile_company: the company's domain came with discovery; its profile finds nothing to add.
+    tool('c4', 'submit_result', { claims: [] }),
     // verify_entity: one verdict per grounded quote.
     json({
       verdicts: [
@@ -131,8 +133,8 @@ async function waitFor<T>(read: () => Promise<T | undefined>, what: string, time
   throw new Error(`timed out waiting for ${what}`);
 }
 
-describe('workflow version 1', () => {
-  it('goes from an objective to a report: plan, approval, discovery, verification, report', async () => {
+describe('workflow version 2', () => {
+  it('goes from an objective to a report: plan, approval, discovery, profile, verification, report', async () => {
     const user = { userId: tenant.userId };
     const runId: RunId = await createRun(h.db, user, tenant.workspaceId, {
       projectId: tenant.projectId,
@@ -236,6 +238,11 @@ describe('workflow version 1', () => {
       `select agent from public.agent_executions where run_id = $1 and status = 'succeeded' order by started_at`,
       [runId],
     );
-    expect(agents.map((a) => a.agent)).toEqual(['planner', 'research', 'verifier']);
+    expect(agents.map((a) => a.agent)).toEqual(['planner', 'research', 'company_intelligence', 'verifier']);
+    const { rows: version } = await h.admin.query<{ workflow_version: number }>(
+      'select workflow_version from public.runs where id = $1',
+      [runId],
+    );
+    expect(version[0]?.workflow_version).toBe(2);
   }, 60_000);
 });

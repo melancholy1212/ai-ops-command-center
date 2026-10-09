@@ -1,0 +1,12 @@
+{
+  "synthetic": true,
+  "search": [],
+  "pages": {
+    "https://oslotech.example/2026/06/02/brackenfield-labs-seed": {
+      "body": "<!doctype html><html lang=\"en\"><head><title>Brackenfield Labs raises seed round</title><meta property=\"article:published_time\" content=\"2026-06-02T07:00:00Z\"></head><body><article><h1>Brackenfield Labs raises EUR 1.8 million seed round</h1><p><a href=\"https://brackenfield.example/\">Brackenfield Labs</a> has raised EUR 1.8 million in seed funding led by <a href=\"https://fjordcapital.example/\">Fjord Capital</a>.</p><p>Brackenfield Labs, based in Oslo, Norway, builds route-planning software for municipal snow clearing.</p><p>Follow <a href=\"https://www.linkedin.com/company/brackenfield-labs\">Brackenfield Labs</a> for updates.</p><p>Norwegian municipalities have started to buy software for winter road maintenance, and several start-ups compete for the first contracts.</p></article></body></html>"
+    },
+    "https://brackenfield.example/": {
+      "body": "<!doctype html><html lang=\"en\"><head><title>Brackenfield Labs</title></head><body><main><h1>Brackenfield Labs</h1><p>Brackenfield Labs builds route-planning software for municipal snow clearing.</p><p>Brackenfield Labs is headquartered in Oslo, Norway.</p><h2>News</h2><p>June 2, 2026: Brackenfield Labs has raised EUR 1.8 million in seed funding led by Fjord Capital.</p><p>Our planners use live weather data to schedule ploughs and gritters across a whole municipality.</p></main></body></html>"
+    }
+  }
+}

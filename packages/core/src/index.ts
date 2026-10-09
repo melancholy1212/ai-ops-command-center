@@ -32,6 +32,13 @@ export {
   type DiscoveryContext,
 } from './workflow/discovery';
 export {
+  loadCompanyToProfile,
+  persistProfile,
+  type CompanyToProfile,
+  type LinkedWebsite,
+  type ProfileResult,
+} from './workflow/profile';
+export {
   applyVerification,
   judgeItems,
   loadCompanyForVerification,

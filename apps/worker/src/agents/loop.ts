@@ -76,7 +76,7 @@ export interface AgentRole<I, O> {
    * are dropped, never rewritten, and every drop is reported. Null when nothing valid is left, so a failed
    * result is never passed off as an empty one.
    */
-  salvage?(output: O, seen: LoopObservations): { value: O; dropped: string[] } | null;
+  salvage?(output: O, seen: LoopObservations, input: I): { value: O; dropped: string[] } | null;
 }
 
 export function promptHash(role: AgentRole<unknown, unknown>): string {
@@ -226,7 +226,7 @@ export async function runToolLoop<I, O>(options: ToolLoopOptions<I, O>): Promise
   /** Last chance only: keep what is valid, record what was dropped. */
   const salvage = async (checked: Checked): Promise<O | null> => {
     if (checked.ok || checked.parsed === undefined || !role.salvage) return null;
-    const kept = role.salvage(checked.parsed, { sourceIds: seenSources, tools: seenTools, canSendBack: false });
+    const kept = role.salvage(checked.parsed, { sourceIds: seenSources, tools: seenTools, canSendBack: false }, input);
     if (!kept) return null;
     const recheck = validate(kept.value, false);
     if (!recheck.ok) return null;

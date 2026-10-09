@@ -1,13 +1,14 @@
 // Discovery persistence against the local database: entity resolution, grounding against saved snapshots,
 // idempotent claims, rejection reasons, pre-score ranking and the expansion it drives.
 import { randomUUID } from 'node:crypto';
-import type { InterpretedCriteria, ProposedClaim, SourceId } from '@aoc/contracts';
+import type { CompanyId, InterpretedCriteria, ProposedClaim, SourceId } from '@aoc/contracts';
 import { withWorkspace } from '@aoc/db';
 import { createTestHarness, type TestHarness, type TestTenant } from '@aoc/db/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createRun } from './commands/runs';
 import { discoveryExpansion, persistDiscovery, type DiscoveryContext } from './workflow/discovery';
 import { applyVerification, judgeItems, loadCompanyForVerification } from './workflow/verify';
+import { loadCompanyToProfile, persistProfile } from './workflow/profile';
 import { compileReport } from './workflow/report';
 import { canonicalJson, sha256Hex } from './canonical-json';
 
@@ -321,10 +322,25 @@ describe('persistDiscovery', () => {
       'Fjordlight Energy Analytics',
       'Pinecrest Carbon',
     ]);
-    const plan = discoveryExpansion(result.companies, criteria.maxCompanies);
+    // Version 1: verification straight after discovery.
+    const plan = discoveryExpansion(result.companies, criteria.maxCompanies, 1);
     expect(plan.tasks.map((t) => t.type)).toEqual(['verify_entity', 'verify_entity', 'compile_report']);
     expect(plan.tasks.at(-1)?.dependsOn).toHaveLength(2);
-    expect(discoveryExpansion([], 3).tasks.map((t) => t.type)).toEqual(['compile_report']);
+    expect(discoveryExpansion([], 3, 1).tasks.map((t) => t.type)).toEqual(['compile_report']);
+    // Version 2: each company is profiled first, and its verification needs the profile.
+    const v2 = discoveryExpansion(result.companies, criteria.maxCompanies, 2);
+    expect(v2.tasks.map((t) => t.type)).toEqual([
+      'profile_company',
+      'profile_company',
+      'verify_entity',
+      'verify_entity',
+      'compile_report',
+    ]);
+    const [first] = result.companies;
+    expect(v2.tasks.find((t) => t.ref === `verify:${first?.id ?? ''}`)?.dependsOn).toEqual([
+      { ref: `profile:${first?.id ?? ''}`, mode: 'hard' },
+    ]);
+    expect(v2.tasks.at(-1)?.dependsOn?.every((d) => d.mode === 'soft')).toBe(true);
   });
 });
 
@@ -714,5 +730,263 @@ describe('compileReport', () => {
       { id: report.artifactId, version: 1, status: 'superseded', previous: null },
       { id: again.artifactId, version: 2, status: 'final', previous: report.artifactId },
     ]);
+  });
+});
+
+describe('persistProfile', () => {
+  /** A link found on an evidence page, as fetch_page records it. */
+  async function pageLink(runId: string, fromSourceId: SourceId, url: string, anchorText: string): Promise<void> {
+    await h.admin.query(
+      `insert into public.discovered_urls (workspace_id, run_id, url, normalized_url, normalized_url_hash, origin_kind, origin)
+       values ($1, $2, $3, $3, $4, 'page_link', $5)`,
+      [tenant.workspaceId, runId, url, sha256Hex(url), JSON.stringify({ kind: 'page_link', fromSourceId, anchorText })],
+    );
+  }
+
+  /** Discovery's view of a company: one grounded claim from a news article. Returns the company id. */
+  async function discovered(ctx: DiscoveryContext, name: string, article: SourceId, quote: string): Promise<string> {
+    const result = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistDiscovery(tx, ctx, [
+        claim(company(name), { attribute: 'company.hq_country', value: { country: 'SE' } }, article, quote),
+      ]),
+    );
+    return result.companies[0]!.id;
+  }
+
+  const profileCtx = (ctx: DiscoveryContext) => ({ ...ctx, agent: 'company_intelligence' as const });
+  const domainOf = async (companyId: string) =>
+    (
+      await h.admin.query<{ primary_domain: string | null }>(
+        'select primary_domain from public.companies where id = $1',
+        [companyId],
+      )
+    ).rows[0]!.primary_domain;
+
+  it('takes the site an evidence page links under the name, adds its quotes, and verifies on them', async () => {
+    const ctx = await context();
+    const article = await source(
+      'Stockholm-based Northwind Climate is headquartered in Stockholm, Sweden, the company said.',
+    );
+    const companyId = await discovered(
+      ctx,
+      'Northwind Climate',
+      article,
+      'Stockholm-based Northwind Climate is headquartered in Stockholm, Sweden',
+    );
+    await pageLink(ctx.run.id, article, 'https://northwind.example/', 'Northwind Climate');
+    await pageLink(ctx.run.id, article, 'https://www.linkedin.com/company/northwind', 'Northwind Climate');
+
+    const toProfile = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      loadCompanyToProfile(tx, ctx.run.id, companyId),
+    );
+    expect(toProfile.website).toEqual({
+      url: 'https://northwind.example/',
+      domain: 'northwind.example',
+      fromSourceId: article,
+    });
+    expect(toProfile.knownFacts).toEqual(['Northwind Climate is headquartered in Sweden.']);
+
+    const site = await source(
+      'Northwind Climate AB is headquartered in Stockholm, Sweden. We build carbon accounting software for manufacturers.',
+      'C',
+      '2026-05-01T08:00:00Z',
+      'northwind.example',
+      'company_website',
+    );
+    const result = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistProfile(tx, profileCtx(ctx), companyId, [
+        claim(
+          company('Northwind Climate AB'),
+          { attribute: 'company.hq_country', value: { country: 'SE' } },
+          site,
+          'Northwind Climate AB is headquartered in Stockholm, Sweden',
+        ),
+        claim(
+          company('Northwind Climate', 'northwind.example'),
+          { attribute: 'company.sector', value: { tags: ['carbon accounting'] } },
+          site,
+          'We build carbon accounting software for manufacturers',
+        ),
+        // About the company by id: kept.
+        {
+          subject: { kind: 'company', companyId: companyId as CompanyId },
+          assertion: { attribute: 'company.hq_city', value: { city: 'Stockholm' } },
+          rawValue: 'Stockholm',
+          evidence: [{ sourceId: site, quote: 'Northwind Climate AB is headquartered in Stockholm, Sweden' }],
+        },
+        // About someone else, by id or by name: dropped, never written to this company.
+        {
+          subject: { kind: 'company', companyId: randomUUID() as CompanyId },
+          assertion: { attribute: 'company.hq_city', value: { city: 'Oslo' } },
+          rawValue: 'Oslo',
+          evidence: [{ sourceId: site, quote: 'Northwind Climate AB is headquartered in Stockholm, Sweden' }],
+        },
+        claim(
+          company('Nordic Seed Partners'),
+          { attribute: 'company.hq_country', value: { country: 'NO' } },
+          site,
+          'Northwind Climate AB is headquartered in Stockholm, Sweden',
+        ),
+      ]),
+    );
+    expect(result).toMatchObject({
+      grounded: 3,
+      rejected: 0,
+      dropped: 2,
+      domain: { value: 'northwind.example', rule: 'linked_from_evidence' },
+      domainNotRecorded: null,
+    });
+    expect(await domainOf(companyId)).toBe('northwind.example');
+
+    // The company's own page is now a second, self-published source for the headquarters: verified.
+    const loaded = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      loadCompanyForVerification(tx, ctx.run.id, companyId),
+    );
+    expect(loaded.claims.find((c) => c.assertion.attribute === 'company.hq_country')?.evidence).toHaveLength(2);
+    await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      applyVerification(
+        tx,
+        { run: ctx.run, taskId: ctx.taskId, criteria, now: ctx.now },
+        loaded,
+        judgeItems(loaded).map((i) => ({
+          evidenceId: i.evidenceId,
+          verdict: 'supports',
+          reason: 'Stated.',
+          llmCallId: null,
+        })),
+      ),
+    );
+    const { rows } = await h.admin.query<{ attribute: string; status: string }>(
+      'select attribute, status from public.claims where run_id = $1 order by attribute',
+      [ctx.run.id],
+    );
+    expect(rows).toEqual([
+      // One source, the company's own: city is not a fact the site alone verifies.
+      { attribute: 'company.hq_city', status: 'probable' },
+      { attribute: 'company.hq_country', status: 'verified' },
+      { attribute: 'company.sector', status: 'verified' },
+    ]);
+  });
+
+  it('takes a website claim whose domain another evidence page writes out', async () => {
+    const ctx = await context();
+    const article = await source(
+      'ESTONIA: Display.dev raises EUR 470,000 to power document collaboration for AI agents.',
+    );
+    const companyId = await discovered(
+      ctx,
+      'Display.dev',
+      article,
+      'Display.dev raises EUR 470,000 to power document collaboration for AI agents',
+    );
+    const home = await source(
+      'Display.dev: document collaboration for AI agents, built in Tallinn.',
+      'C',
+      '2026-05-01T08:00:00Z',
+      'display.dev',
+      'company_website',
+    );
+    const result = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistProfile(tx, profileCtx(ctx), companyId, [
+        claim(
+          company('Display.dev'),
+          { attribute: 'company.website', value: { url: 'https://display.dev/' } },
+          home,
+          'Display.dev: document collaboration for AI agents',
+        ),
+      ]),
+    );
+    expect(result.domain).toEqual({ value: 'display.dev', rule: 'named_in_evidence' });
+    expect(await domainOf(companyId)).toBe('display.dev');
+  });
+
+  it('never ties a domain on the word of a page the profiler found itself (it may be about a namesake)', async () => {
+    const ctx = await context();
+    const article = await source('Gothenburg startup Nova Grid has raised a seed round to build grid software.');
+    const companyId = await discovered(
+      ctx,
+      'Nova Grid',
+      article,
+      'Gothenburg startup Nova Grid has raised a seed round to build grid software',
+    );
+    // Found by searching the name: a namesake's site, and a third-party page that writes its domain out.
+    const namesakeHome = await source(
+      'Nova Grid builds solar inverters for homes in Texas and Arizona.',
+      'C',
+      '2026-05-01T08:00:00Z',
+      'novagrid-solar.example',
+      'company_website',
+    );
+    const directory = await source(
+      'Nova Grid (novagrid-solar.example) makes solar inverters for homes across the southern United States.',
+      'C',
+      '2026-05-01T08:00:00Z',
+      'startup-directory.example',
+    );
+    const result = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistProfile(tx, profileCtx(ctx), companyId, [
+        claim(
+          company('Nova Grid'),
+          { attribute: 'company.website', value: { url: 'https://novagrid-solar.example/' } },
+          namesakeHome,
+          'Nova Grid builds solar inverters for homes in Texas and Arizona',
+        ),
+        claim(
+          company('Nova Grid'),
+          { attribute: 'company.sector', value: { tags: ['solar inverters'] } },
+          directory,
+          'Nova Grid (novagrid-solar.example) makes solar inverters for homes across the southern United States',
+        ),
+      ]),
+    );
+    // The claims are written (verification judges them), but no domain is recorded from them.
+    expect(result.domain).toBeNull();
+    expect(await domainOf(companyId)).toBeNull();
+  });
+
+  it('records no domain for a site nothing ties to the company, and none another company holds', async () => {
+    const ctx = await context();
+    const article = await source(
+      'Stockholm-based Northwind Climate is headquartered in Stockholm, Sweden, the company said.',
+    );
+    const companyId = await discovered(
+      ctx,
+      'Northwind Climate',
+      article,
+      'Stockholm-based Northwind Climate is headquartered in Stockholm, Sweden',
+    );
+    // A namesake's site the agent found by searching: its own words are no evidence that it is this company.
+    const namesake = await source(
+      'Northwind Climate is a heating installer based in Leeds, England.',
+      'C',
+      '2026-05-01T08:00:00Z',
+      'northwind-heating.example',
+      'company_website',
+    );
+    const unproven = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistProfile(tx, profileCtx(ctx), companyId, [
+        claim(
+          company('Northwind Climate'),
+          { attribute: 'company.website', value: { url: 'https://northwind-heating.example/' } },
+          namesake,
+          'Northwind Climate is a heating installer based in Leeds, England',
+        ),
+      ]),
+    );
+    expect(unproven.domain).toBeNull();
+    expect(await domainOf(companyId)).toBeNull();
+
+    // A linked site whose domain another company already has.
+    await h.admin.query(
+      `insert into public.companies (workspace_id, name, normalized_name, primary_domain) values ($1, 'Northwind Holdings', 'northwind holdings', 'northwind.example')`,
+      [tenant.workspaceId],
+    );
+    await pageLink(ctx.run.id, article, 'https://northwind.example/', 'Northwind Climate');
+    const taken = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistProfile(tx, profileCtx(ctx), companyId, []),
+    );
+    expect(taken.domain).toBeNull();
+    expect(taken.domainNotRecorded).toBe('northwind.example already belongs to Northwind Holdings.');
+    expect(await domainOf(companyId)).toBeNull();
   });
 });

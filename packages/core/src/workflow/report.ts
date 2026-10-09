@@ -16,6 +16,7 @@ import {
   type InterpretedCriteria,
 } from '@aoc/contracts';
 import { toJson, type WorkspaceTransaction } from '@aoc/db';
+import { sql } from 'kysely';
 import type { z } from 'zod';
 import { canonicalJson, sha256Hex } from '../canonical-json';
 
@@ -82,6 +83,14 @@ export async function compileReport(tx: WorkspaceTransaction, ctx: ReportContext
     .where('type', '=', 'verify_entity')
     .execute();
   const verification = new Map(verifyTasks.map((t) => [t.subject_company_id ?? '', t.status]));
+  // Workflow version 2 profiles a company before verifying it; a failed profile skips the verification.
+  const profileTasks = await tx
+    .selectFrom('tasks')
+    .select(['subject_company_id', 'status', sql<string | null>`last_failure->>'code'`.as('failure_code')])
+    .where('run_id', '=', ctx.run.id)
+    .where('type', '=', 'profile_company')
+    .execute();
+  const profiles = new Map(profileTasks.map((t) => [t.subject_company_id ?? '', t]));
   const gaps = await tx
     .selectFrom('research_gaps')
     .select(['id', 'company_id'])
@@ -115,8 +124,15 @@ export async function compileReport(tx: WorkspaceTransaction, ctx: ReportContext
       exclude('No claim survived grounding: every quote was missing from its source or too short.', own, 2);
     else if (verifyStatus === undefined)
       exclude(`Not among the top ${String(ctx.criteria.maxCompanies)} candidates after discovery.`, [], 1);
-    else if (verifyStatus !== 'succeeded') exclude('Verification did not complete.', []);
-    else if (outside)
+    else if (verifyStatus !== 'succeeded') {
+      const profile = profiles.get(companyId);
+      exclude(
+        profile && profile.status !== 'succeeded'
+          ? `The company profile ${profile.status === 'failed' ? `failed (${profile.failure_code ?? 'unknown error'})` : `was ${profile.status}`}, so it was not verified.`
+          : 'Verification did not complete.',
+        [],
+      );
+    } else if (outside)
       exclude(reasonsOf(outside).find((r) => r.code === 'OUTSIDE_CRITERIA')?.detail ?? 'Outside the brief.', [outside]);
     else if (rounds.length === 0)
       exclude(

@@ -1,9 +1,10 @@
 /**
  * Runs a verification-scope case (ADR-0009, docs/evaluation.md#verification-cases) through the production code
  * path: the real MCP server in-process with the case's pages, the real scheduler and handlers for discovery,
- * verification and the report. The Research agent is scripted: it opens every page of the case through
- * fetch_page (so snapshots, tiers and injection flags come from the real pipeline) and proposes the case's
- * claims citing the source ids those fetches returned. The verifier is the only model under test; its calls
+ * company profiles, verification and the report. The Research and Company Intelligence agents are scripted: they
+ * open the case's pages through fetch_page (so snapshots, tiers, links and injection flags come from the real
+ * pipeline) and propose the case's claims citing the source ids those fetches returned. Code then grounds them,
+ * finds the company's site and decides its domain for real. The verifier is the only model under test; its calls
  * are what --record saves and replay-all replays.
  */
 import { createServer } from 'node:http';
@@ -25,6 +26,7 @@ import {
   ROUTES,
   saveRecordings,
   type LlmProvider,
+  type LlmRequest,
   type LlmResponse,
   type Recording,
   type ScriptedTurn,
@@ -52,36 +54,69 @@ const respond = (toolCalls: ToolCallRequest[]): LlmResponse => ({
   retryCount: 0,
 });
 
-/** Opens every page in one turn, then submits the case's claims with the source ids the fetches returned. */
-function scriptedDiscovery(claims: readonly CaseClaim[], urls: readonly string[]): LlmProvider {
+/** Source ids the fetches in this conversation returned, by the URL each tool call opened. */
+function fetchedSources(request: LlmRequest): Map<string, string> {
+  const opened = new Map<string, string>();
+  const urlByCall = new Map<string, string>();
+  for (const message of request.messages) {
+    if (message.role === 'assistant')
+      for (const call of message.toolCalls)
+        if (call.name === 'fetch_page') urlByCall.set(call.id, (JSON.parse(call.argumentsJson) as { url: string }).url);
+    if (message.role === 'tool')
+      for (const result of message.results) {
+        const url = urlByCall.get(result.toolCallId);
+        const output = JSON.parse(result.content) as { sourceId?: unknown };
+        if (url && typeof output.sourceId === 'string') opened.set(url, output.sourceId);
+      }
+  }
+  return opened;
+}
+
+const openPages = (urls: readonly string[], prefix: string) =>
+  respond(
+    urls.map((url, i) => ({
+      id: `${prefix}_${String(i)}`,
+      name: 'fetch_page',
+      argumentsJson: JSON.stringify({ url }),
+    })),
+  );
+
+const cite = (claims: readonly CaseClaim[], sources: ReadonlyMap<string, string>) =>
+  claims.map((c) => ({
+    assertion: c.assertion,
+    rawValue: c.rawValue,
+    evidence: c.evidence.map((e) => ({ sourceId: sources.get(e.url) ?? NO_SOURCE, quote: e.quote })),
+  }));
+
+/**
+ * The scripted research agents, answering from each request alone (profiles run concurrently). Discovery opens
+ * every page of the case in one turn, then proposes the case's claims citing the source ids the fetches returned.
+ * A company's profile (workflow version 2) opens the pages of the case's profile claims about it, then proposes
+ * them about the company its task names; with none, it submits an empty profile.
+ */
+function scriptedAgents(evalCase: VerificationCase, discoveryUrls: readonly string[]): LlmProvider {
+  const turn = (request: LlmRequest): LlmResponse => {
+    const first = request.messages[0];
+    const task = first?.role === 'user' ? first.content : '';
+    const sources = fetchedSources(request);
+    const profiled = /Profile this company: (.+) \(companyId ([0-9a-f-]{36})\)/.exec(task);
+    if (!profiled) {
+      if (sources.size === 0) return openPages(discoveryUrls, 'open');
+      const claims = cite(evalCase.input.claims, sources).map((c, i) => ({
+        ...c,
+        subject: evalCase.input.claims[i]?.subject,
+      }));
+      return respond([{ id: 'submit', name: 'submit_result', argumentsJson: JSON.stringify({ claims }) }]);
+    }
+    const [, name = '', companyId = ''] = profiled;
+    const own = evalCase.input.profileClaims.filter((c) => c.subject.name.toLowerCase() === name.toLowerCase());
+    const urls = [...new Set(own.flatMap((c) => c.evidence.map((e) => e.url)))];
+    if (urls.length > 0 && sources.size === 0) return openPages(urls, 'profile');
+    const claims = cite(own, sources).map((c) => ({ ...c, subject: { kind: 'company', companyId } }));
+    return respond([{ id: 'submit_profile', name: 'submit_result', argumentsJson: JSON.stringify({ claims }) }]);
+  };
   return createScriptedProvider(
-    [
-      () =>
-        respond(
-          urls.map((url, i) => ({
-            id: `open_${String(i)}`,
-            name: 'fetch_page',
-            argumentsJson: JSON.stringify({ url }),
-          })),
-        ),
-      (request) => {
-        const last = request.messages.at(-1);
-        if (last?.role !== 'tool') throw new Error('The scripted discovery expected the fetch results.');
-        const sourceByUrl = new Map<string, string>();
-        for (const result of last.results) {
-          const url = urls[Number(result.toolCallId.replace('open_', ''))];
-          const output = JSON.parse(result.content) as { sourceId?: unknown };
-          if (url && typeof output.sourceId === 'string') sourceByUrl.set(url, output.sourceId);
-        }
-        const proposed = claims.map((c) => ({
-          subject: c.subject,
-          assertion: c.assertion,
-          rawValue: c.rawValue,
-          evidence: c.evidence.map((e) => ({ sourceId: sourceByUrl.get(e.url) ?? NO_SOURCE, quote: e.quote })),
-        }));
-        return respond([{ id: 'submit', name: 'submit_result', argumentsJson: JSON.stringify({ claims: proposed }) }]);
-      },
-    ],
+    Array.from({ length: 200 }, () => turn),
     { account: SCRIPTED_DISCOVERY_ACCOUNT },
   );
 }
@@ -193,7 +228,7 @@ export async function runVerificationCase(evalCase: VerificationCase, options: R
     const mcpUrl = `http://127.0.0.1:${String((http.address() as AddressInfo).port)}/mcp`;
 
     const router = new LlmRouter({
-      providers: [scriptedDiscovery(evalCase.input.claims, urls), ...judges],
+      providers: [scriptedAgents(evalCase, urls), ...judges],
       routes: {
         ...ROUTES,
         agent_loop: [
@@ -217,6 +252,7 @@ export async function runVerificationCase(evalCase: VerificationCase, options: R
       workerId: `eval-${evalCase.id}`,
       handlers: {
         ...(all.discover_companies ? { discover_companies: all.discover_companies } : {}),
+        ...(all.profile_company ? { profile_company: all.profile_company } : {}),
         ...(all.verify_entity ? { verify_entity: all.verify_entity } : {}),
         ...(all.compile_report ? { compile_report: all.compile_report } : {}),
       },

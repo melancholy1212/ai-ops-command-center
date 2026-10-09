@@ -1,5 +1,6 @@
 import {
   Budget,
+  CURRENT_WORKFLOW_VERSION,
   normalizeUrl,
   CancelRunCommand,
   CreateRunCommand,
@@ -38,7 +39,7 @@ export async function createRun(
         workspace_id: workspaceId,
         project_id: project.id,
         workflow: 'prospect_research',
-        workflow_version: 1,
+        workflow_version: CURRENT_WORKFLOW_VERSION,
         objective: command.objective,
         budget: toJson(budget),
         created_by: user.userId,

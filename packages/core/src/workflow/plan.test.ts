@@ -100,9 +100,14 @@ describe('news outlets', () => {
 
 describe('planEstimate', () => {
   it('scales with the number of companies and gives a range', () => {
-    const small = planEstimate(normalizePlan(proposal({ maxCompanies: 1 }), TODAY).criteria);
-    const large = planEstimate(normalizePlan(proposal({ maxCompanies: 10 }), TODAY).criteria);
+    const small = planEstimate(normalizePlan(proposal({ maxCompanies: 1 }), TODAY).criteria, 2);
+    const large = planEstimate(normalizePlan(proposal({ maxCompanies: 10 }), TODAY).criteria, 2);
     expect(small.costUsdMicrosLow).toBeLessThan(small.costUsdMicrosHigh);
     expect(large.costUsdMicrosHigh).toBeGreaterThan(small.costUsdMicrosHigh);
+  });
+
+  it('adds a profile per company from workflow version 2', () => {
+    const criteria = normalizePlan(proposal({ maxCompanies: 3 }), TODAY).criteria;
+    expect(planEstimate(criteria, 2).costUsdMicrosHigh).toBeGreaterThan(planEstimate(criteria, 1).costUsdMicrosHigh);
   });
 });

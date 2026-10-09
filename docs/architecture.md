@@ -1,6 +1,7 @@
 # Architecture overview
 
-Status: **Phase 4 (evidence + verification) complete; Phase 5 (full workflow) is next.** Implemented: the monorepo and
+Status: **Phase 4 (evidence + verification) complete; Phase 5 (full workflow) in progress: company profiles
+(workflow version 2) are built.** Implemented: the monorepo and
 tooling, the domain contracts, tenancy with row-level security, Supabase auth with a personal workspace per user, the
 workflow engine (Postgres task graph, `@aoc/core`, worker scheduler), the LLM layer (`@aoc/llm`), the MCP server with
 capability tokens, the egress-safe fetcher and three tools, the agent runtime, the Research agent, planner and

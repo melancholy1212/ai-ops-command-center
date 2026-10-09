@@ -208,12 +208,21 @@ export function normalizePlan(proposal: PlannerProposal, today: string): Normali
   return { criteria, assumptions: assumptions.slice(0, 20), openQuestions: proposal.openQuestions };
 }
 
-/** A range from per-task estimates: the plan call, discovery, one verification per company, the report. */
-export function planEstimate(criteria: InterpretedCriteria): { costUsdMicrosLow: number; costUsdMicrosHigh: number } {
+/**
+ * A range from per-task estimates: the plan call, discovery, one verification per company (from workflow version 2,
+ * one profile per company too), the report.
+ */
+export function planEstimate(
+  criteria: InterpretedCriteria,
+  workflowVersion: number,
+): { costUsdMicrosLow: number; costUsdMicrosHigh: number } {
+  const perCompany =
+    TASK_COST_ESTIMATES.structured_llm.costUsdMicros +
+    (workflowVersion >= 2 ? TASK_COST_ESTIMATES.agent_loop.costUsdMicros : 0);
   const base =
     TASK_COST_ESTIMATES.structured_llm.costUsdMicros +
     TASK_COST_ESTIMATES.agent_loop.costUsdMicros +
-    criteria.maxCompanies * TASK_COST_ESTIMATES.structured_llm.costUsdMicros;
+    criteria.maxCompanies * perCompany;
   return { costUsdMicrosLow: Math.round(base * 0.5), costUsdMicrosHigh: Math.round(base * 1.5) };
 }
 
@@ -229,7 +238,7 @@ export function planSnapshot(
     criteria: brief.criteria,
     assumptions: brief.assumptions,
     budget,
-    estimate: planEstimate(brief.criteria),
+    estimate: planEstimate(brief.criteria, workflowVersion),
     workflowVersion,
   };
 }
