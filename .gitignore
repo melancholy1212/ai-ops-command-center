@@ -20,3 +20,6 @@ supabase/.temp/
 .DS_Store
 *.log
 evals/results/
+
+# Browser tool screenshots and snapshots (Playwright MCP)
+.playwright-mcp/
