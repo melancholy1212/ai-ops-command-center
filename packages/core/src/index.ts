@@ -39,6 +39,13 @@ export {
   type ProfileResult,
 } from './workflow/profile';
 export {
+  loadCompanyForPeople,
+  looksLikeContactDetail,
+  persistPeople,
+  type CompanyForPeople,
+  type PeopleResult,
+} from './workflow/people';
+export {
   applyVerification,
   judgeItems,
   loadCompanyForVerification,

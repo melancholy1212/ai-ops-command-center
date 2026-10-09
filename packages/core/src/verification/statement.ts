@@ -31,6 +31,33 @@ const list = (items: readonly string[]) =>
  * The statement the judge checks a quote against. A funding round leaves out its date: articles rarely state
  * it, and code checks it against the source's publication date instead (policy.ts, DATE_UNVERIFIED).
  */
+/**
+ * A claim about a person names the person and the company the role is held at: "Anna Svensson is CEO at Oplane."
+ * The judge reads it without the start date, which pages rarely state (code checks recency instead).
+ */
+export function renderPersonStatement(
+  personName: string,
+  companyName: string,
+  assertion: ClaimAssertion,
+  options: { withSince: boolean } = { withSince: true },
+): string {
+  const person = personName.trim();
+  let text: string;
+  switch (assertion.attribute) {
+    case 'person.current_role': {
+      const since = options.withSince && assertion.value.since ? ` since ${assertion.value.since}` : '';
+      text = `${person} is ${assertion.value.title} at ${companyName.trim()}${since}.`;
+      break;
+    }
+    case 'person.public_profile':
+      text = `${person}'s public profile: ${assertion.value.url}.`;
+      break;
+    default:
+      return renderStatement(person, assertion);
+  }
+  return text.length > 400 ? `${text.slice(0, 399)}…` : text;
+}
+
 export function judgeStatement(companyName: string, assertion: ClaimAssertion): string {
   if (assertion.attribute !== 'company.funding_round') return renderStatement(companyName, assertion);
   return renderStatement(companyName, assertion, { withDate: false });

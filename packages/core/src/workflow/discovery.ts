@@ -18,7 +18,8 @@ import type { ExpansionPlan } from '../engine/types';
 import { sha256Hex } from '../canonical-json';
 import { groundQuote, sentenceAround } from '../verification/grounding';
 import { claimFingerprint, normalizeCompanyName, registrableDomainOf } from '../verification/identity';
-import { renderStatement } from '../verification/statement';
+import { renderPersonStatement, renderStatement } from '../verification/statement';
+import { normalizeForMatch } from '../verification/text';
 import { valueInText } from '../verification/values';
 
 /** Who writes proposed claims, and when. */
@@ -196,12 +197,25 @@ export async function loadCitedSources(
  * idempotently: the same claim proposed twice in a run (by any task) is one claim with more evidence, and a
  * rejected claim that now has a grounded quote becomes grounded.
  */
+/** The person's surname (the name's last word) appears in the text: a title next to someone else's name is not theirs. */
+function surnameInText(fullName: string, text: string): boolean {
+  const surname = normalizeForMatch(fullName)
+    .text.split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .at(-1);
+  if (!surname || surname.length < 2) return false;
+  const escaped = surname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^\\p{L}])${escaped}($|[^\\p{L}])`, 'u').test(normalizeForMatch(text).text);
+}
+
 export async function writeCompanyClaims(
   tx: WorkspaceTransaction,
   ctx: ClaimWriteContext,
   company: { id: string; name: string },
   proposed: readonly ProposedClaim[],
   sources: ReadonlyMap<string, SourceRow>,
+  /** Set when the claims are about a person at the company (people discovery). */
+  person: { id: string; name: string } | null = null,
 ): Promise<WrittenClaim[]> {
   const written: WrittenClaim[] = [];
   for (const proposal of proposed) {
@@ -213,7 +227,10 @@ export async function writeCompanyClaims(
     const checked = evidence.map((e) => {
       const g = groundQuote(e.source.text, e.quote);
       const first = g.spans[0];
-      const valueInQuote = first ? valueInText(assertion, `${e.quote} ${sentenceAround(e.source.text, first)}`) : null;
+      const near = first ? `${e.quote} ${sentenceAround(e.source.text, first)}` : null;
+      const value = near === null ? null : valueInText(assertion, near);
+      // About a person: the person must be named there too, or the value may belong to someone else.
+      const valueInQuote = near !== null && person ? value !== false && surnameInText(person.name, near) : value;
       return { ...e, grounding: g, valueInQuote };
     });
     const anyGrounded = checked.some((c) => c.grounding.result !== 'not_found');
@@ -228,7 +245,7 @@ export async function writeCompanyClaims(
         evidenceIds: [],
       }));
     const published = checked.map((c) => c.source.published_at?.getTime()).filter((t): t is number => t !== undefined);
-    const fingerprint = claimFingerprint(company.id, assertion);
+    const fingerprint = claimFingerprint(person ? `person:${person.id}` : company.id, assertion);
     const status = anyGrounded ? 'grounded' : 'rejected';
     const inserted = await tx
       .insertInto('claims')
@@ -236,10 +253,13 @@ export async function writeCompanyClaims(
         workspace_id: ctx.run.workspace_id,
         run_id: ctx.run.id,
         subject_company_id: company.id,
+        subject_person_id: person?.id ?? null,
         attribute: assertion.attribute,
         value: toJson(assertion.value),
         raw_value: proposal.rawValue,
-        statement: renderStatement(company.name, assertion),
+        statement: person
+          ? renderPersonStatement(person.name, company.name, assertion)
+          : renderStatement(company.name, assertion),
         fingerprint,
         status,
         verification: toJson({
@@ -367,6 +387,7 @@ export function discoveryExpansion(
 ): ExpansionPlan {
   const chosen = companies.filter((c) => c.groundedClaims > 0).slice(0, maxCompanies);
   const profiles = workflowVersion >= 2;
+  const people = workflowVersion >= 3;
   return {
     tasks: [
       ...(profiles
@@ -378,13 +399,33 @@ export function discoveryExpansion(
             priority: 70,
           }))
         : []),
+      // People are found once the profile has tied the company to its own site, where team pages are.
+      ...(people
+        ? chosen.map((c) => ({
+            ref: `people:${c.id}`,
+            type: 'find_people' as const,
+            input: { type: 'find_people' as const, companyId: c.id },
+            idempotencyKey: `find_people:${c.id}`,
+            priority: 65,
+            dependsOn: [{ ref: `profile:${c.id}`, mode: 'hard' as const }],
+          }))
+        : []),
       ...chosen.map((c) => ({
         ref: `verify:${c.id}`,
         type: 'verify_entity' as const,
         input: { type: 'verify_entity' as const, companyId: c.id, round: 1 as const },
         idempotencyKey: `verify_entity:${c.id}:r1`,
         priority: 60,
-        ...(profiles ? { dependsOn: [{ ref: `profile:${c.id}`, mode: 'hard' as const }] } : {}),
+        // No profile, no verification (docs/workflow.md). People are verified with the company when found, but
+        // a failed people search does not hold the company's own facts back (soft).
+        ...(profiles
+          ? {
+              dependsOn: [
+                { ref: `profile:${c.id}`, mode: 'hard' as const },
+                ...(people ? [{ ref: `people:${c.id}`, mode: 'soft' as const }] : []),
+              ],
+            }
+          : {}),
       })),
       {
         ref: 'report',

@@ -41,6 +41,22 @@ const LEGAL_SUFFIXES = new Set([
 ]);
 
 /** "Northwind Climate AB" and "northwind climate" resolve to the same normalised name. */
+/**
+ * A person's name for matching: case, accents, punctuation and spacing ignored ("Åsa  Lindqvist-Berg" and
+ * "asa lindqvist berg" match). Matching on the name alone is never enough: people are resolved within a company.
+ */
+export function normalizePersonName(name: string): string {
+  return name
+    .normalize('NFKD')
+    .replace(/\p{M}+/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N} ]+/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .join(' ')
+    .slice(0, 120);
+}
+
 export function normalizeCompanyName(name: string): string {
   const tokens = name
     .normalize('NFKC')

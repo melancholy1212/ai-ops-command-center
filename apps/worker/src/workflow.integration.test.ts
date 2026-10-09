@@ -5,7 +5,7 @@ import { createLogger } from '@aoc/config/logger';
 import type { ApprovalId, RunId, SourceId } from '@aoc/contracts';
 import { createRun, decideApproval, startRun } from '@aoc/core';
 import { createTestHarness, type TestHarness, type TestTenant } from '@aoc/db/testing';
-import { createScriptedProvider, LlmRouter, type ScriptedTurn } from '@aoc/llm';
+import { createScriptedProvider, LlmRouter, type LlmRequest, type LlmResponse, type ScriptedTurn } from '@aoc/llm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ToolClient } from './agents/tool-client';
 import { createHandlers } from './handlers';
@@ -18,7 +18,7 @@ let scheduler: Scheduler | null = null;
 let sourceId: SourceId;
 
 const RELEASE =
-  'Northwind Climate AB today announced a EUR 4 million seed round led by Nordic Seed Partners. Northwind Climate is headquartered in Stockholm, Sweden, and builds carbon accounting software for manufacturers.';
+  'Northwind Climate AB today announced a EUR 4 million seed round led by Nordic Seed Partners. Northwind Climate is headquartered in Stockholm, Sweden, and builds carbon accounting software for manufacturers. "We will hire in Stockholm," said Anna Svensson, co-founder of Northwind Climate.';
 
 beforeAll(async () => {
   h = await createTestHarness();
@@ -50,6 +50,35 @@ const usage = {
   cacheWriteTokens: null,
 };
 const json = (value: unknown): ScriptedTurn => ({ text: JSON.stringify(value), usage });
+/** The people search's result: names the company by the id its task message gives, as a model would. */
+const peopleFound =
+  (id: string): ScriptedTurn =>
+  (request: LlmRequest): LlmResponse => {
+    const first = request.messages[0];
+    const companyId = /companyId ([0-9a-f-]{36})/.exec(first?.role === 'user' ? first.content : '')?.[1] ?? '';
+    const claims = [
+      {
+        subject: { kind: 'new_person', fullName: 'Anna Svensson' },
+        assertion: {
+          attribute: 'person.current_role',
+          value: { companyId, title: 'Co-founder', role: 'founder', since: null },
+        },
+        rawValue: 'co-founder',
+        evidence: [{ sourceId, quote: 'said Anna Svensson, co-founder of Northwind Climate' }],
+      },
+    ];
+    const toolCalls = [{ id, name: 'submit_result', argumentsJson: JSON.stringify({ claims }) }];
+    return {
+      text: null,
+      toolCalls,
+      stopReason: 'tool_use',
+      usage,
+      cacheStatus: 'not_supported',
+      providerContent: { role: 'assistant', content: null, tool_calls: toolCalls },
+      latencyMs: 1,
+      retryCount: 0,
+    };
+  };
 const tool = (id: string, name: string, args: unknown): ScriptedTurn => ({
   toolCalls: [{ id, name, argumentsJson: JSON.stringify(args) }],
   usage,
@@ -99,11 +128,15 @@ function script(): ScriptedTurn[] {
     }),
     // profile_company: the company's domain came with discovery; its profile finds nothing to add.
     tool('c4', 'submit_result', { claims: [] }),
+    // find_people: the release quotes a co-founder.
+    tool('c5', 'fetch_page', { url: 'https://www.prnewswire.com/northwind' }),
+    peopleFound('c6'),
     // verify_entity: one verdict per grounded quote.
     json({
       verdicts: [
         { index: 0, verdict: 'supports', reason: 'The release announces the round.' },
         { index: 1, verdict: 'supports', reason: 'The release states Stockholm, Sweden.' },
+        { index: 2, verdict: 'supports', reason: 'The release quotes her as co-founder.' },
       ],
     }),
   ];
@@ -191,17 +224,25 @@ describe('workflow version 2', () => {
       'select attribute, status, confidence from public.claims where run_id = $1 order by attribute',
       [runId],
     );
-    // The company's press release is authoritative for its funding round; one source is probable for its country.
+    // The company's press release is authoritative for its funding round; one source is probable for its country,
+    // and one recent source (not the company's own site) is probable for a person's role.
     expect(claims).toEqual([
       { attribute: 'company.funding_round', status: 'verified', confidence: 'high' },
       { attribute: 'company.hq_country', status: 'probable', confidence: 'medium' },
+      { attribute: 'person.current_role', status: 'probable', confidence: 'medium' },
     ]);
 
     const { rows: reports } = await h.admin.query<{
       status: string;
       version: number;
       content: {
-        companies: { rank: number; claimIds: string[]; gapIds: string[]; scoreFindingId: string }[];
+        companies: {
+          rank: number;
+          claimIds: string[];
+          gapIds: string[];
+          scoreFindingId: string;
+          decisionMakers: unknown[];
+        }[];
         excluded: unknown[];
       };
     }>(`select status, version, content from public.artifacts where run_id = $1 and kind = 'prospect_report'`, [runId]);
@@ -210,8 +251,10 @@ describe('workflow version 2', () => {
     expect([report.status, report.version]).toEqual(['final', 1]);
     expect(report.content.companies).toHaveLength(1);
     expect(report.content.companies[0]).toMatchObject({ rank: 1 });
-    expect(report.content.companies[0]?.claimIds).toHaveLength(2);
+    expect(report.content.companies[0]?.claimIds).toHaveLength(3);
     expect(report.content.companies[0]?.gapIds).toHaveLength(2); // website and sector: unavailable
+    // The brief asks for founders: Anna is one.
+    expect(report.content.companies[0]?.decisionMakers).toHaveLength(1);
     expect(report.content.excluded).toEqual([]);
 
     const { rows: findings } = await h.admin.query<{
@@ -226,7 +269,7 @@ describe('workflow version 2', () => {
       [runId],
     );
     expect(findings).toHaveLength(1);
-    expect(findings[0]).toMatchObject({ kind: 'score', label: 'fact_derived', author_kind: 'code', basis: 2 });
+    expect(findings[0]).toMatchObject({ kind: 'score', label: 'fact_derived', author_kind: 'code', basis: 3 });
     expect(findings[0]?.statement).toMatch(/^Northwind Climate scores 0\.\d\d of 1 \(funding recency/);
 
     const { rows: statuses } = await h.admin.query<{ to: string }>(
@@ -238,11 +281,17 @@ describe('workflow version 2', () => {
       `select agent from public.agent_executions where run_id = $1 and status = 'succeeded' order by started_at`,
       [runId],
     );
-    expect(agents.map((a) => a.agent)).toEqual(['planner', 'research', 'company_intelligence', 'verifier']);
+    expect(agents.map((a) => a.agent)).toEqual([
+      'planner',
+      'research',
+      'company_intelligence',
+      'people_discovery',
+      'verifier',
+    ]);
     const { rows: version } = await h.admin.query<{ workflow_version: number }>(
       'select workflow_version from public.runs where id = $1',
       [runId],
     );
-    expect(version[0]?.workflow_version).toBe(2);
+    expect(version[0]?.workflow_version).toBe(3);
   }, 60_000);
 });

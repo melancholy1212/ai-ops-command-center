@@ -1,4 +1,4 @@
-import type { ClaimAssertion, InterpretedCriteria } from '@aoc/contracts';
+import type { ClaimAssertion, CompanyId, InterpretedCriteria } from '@aoc/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   amountsIn,
@@ -13,6 +13,8 @@ import {
   judgeStatement,
   normalizeCompanyName,
   normalizeForMatch,
+  normalizePersonName,
+  renderPersonStatement,
   outsideCriteria,
   quoteShapeProblem,
   registrableDomainOf,
@@ -436,5 +438,80 @@ describe('identity and statements', () => {
     expect(renderStatement('Northwind Climate', { attribute: 'company.hq_country', value: { country: 'SE' } })).toBe(
       'Northwind Climate is headquartered in Sweden.',
     );
+  });
+});
+
+describe('people', () => {
+  const companyId = '6f1c2d34-5a6b-4c7d-8e9f-0a1b2c3d4e5f' as CompanyId;
+  const role = (
+    title: string,
+    r: 'ceo' | 'cto' | 'founder' | 'head_of_sales' = 'ceo',
+    since: string | null = null,
+  ): ClaimAssertion => ({ attribute: 'person.current_role', value: { companyId, title, role: r, since } });
+  const now = new Date('2026-09-30T12:00:00Z');
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000);
+
+  it('match names regardless of case, accents, punctuation and spacing', () => {
+    expect(normalizePersonName(`  ${String.fromCodePoint(0xc5)}sa  Lindqvist-Berg `)).toBe('asa lindqvist berg');
+    expect(normalizePersonName('ASA LINDQVIST BERG')).toBe('asa lindqvist berg');
+  });
+
+  it('name the person and the company in statements; the judge reads them without the start date', () => {
+    expect(renderPersonStatement('Anna Svensson', 'Oplane', role('Co-founder and CEO', 'ceo', '2022-03-01'))).toBe(
+      'Anna Svensson is Co-founder and CEO at Oplane since 2022-03-01.',
+    );
+    expect(
+      renderPersonStatement('Anna Svensson', 'Oplane', role('CEO', 'ceo', '2022-03-01'), { withSince: false }),
+    ).toBe('Anna Svensson is CEO at Oplane.');
+  });
+
+  it('find the title as stated near the quote, ignoring short connectives', () => {
+    expect(valueInText(role('Co-founder and CEO'), 'Anna Svensson, co-founder and CEO of Oplane')).toBe(true);
+    expect(valueInText(role('Chief Technology Officer', 'cto'), 'Anna Svensson, CTO of Oplane')).toBe(false);
+  });
+
+  it('contest two different C-suite seats for one person, never a founder who is also CEO, never two people', () => {
+    const conflicts = findConflicts([
+      { id: 'a', assertion: role('CEO'), personId: 'p1' },
+      { id: 'b', assertion: role('CTO', 'cto'), personId: 'p1' },
+      { id: 'c', assertion: role('Co-founder', 'founder'), personId: 'p1' },
+      { id: 'd', assertion: role('CFO and COO', 'cto'), personId: 'p2' },
+    ]);
+    expect([...conflicts.keys()].sort()).toEqual(['a', 'b']);
+  });
+
+  it('verify a role on the company own page fetched recently, or on two recent independent sources', () => {
+    const own = evidence({
+      selfPublished: true,
+      registrableDomain: 'oplane.example',
+      publishedAt: null,
+      retrievedAt: daysAgo(2),
+      context: 'Our team: Anna Svensson, co-founder and CEO.',
+    });
+    expect(evaluatePolicy(role('CEO'), [own], now).status).toBe('verified');
+    // The own page fetched long ago no longer shows who holds the role today.
+    expect(evaluatePolicy(role('CEO'), [{ ...own, retrievedAt: daysAgo(200) }], now).status).toBe('probable');
+    const news = (id: string, domain: string, age: number, context: string) =>
+      evidence({ evidenceId: id, registrableDomain: domain, publishedAt: daysAgo(age), context });
+    expect(
+      evaluatePolicy(
+        role('CEO'),
+        [
+          news('e1', 'news-one.example', 30, 'Anna Svensson, the chief executive of Oplane, told reporters on Monday.'),
+          news('e2', 'news-two.example', 90, 'Oplane CEO Anna Svensson spoke at the Nordic climate summit in Oslo.'),
+        ],
+        now,
+      ).status,
+    ).toBe('verified');
+    expect(evaluatePolicy(role('CEO'), [news('e1', 'news-one.example', 300, 'Anna Svensson, CEO.')], now).status).toBe(
+      'probable',
+    );
+  });
+
+  it('mark a role stale when every source is older than 18 months', () => {
+    const old = evidence({ publishedAt: daysAgo(600), context: 'Erik Berg, CTO of Oplane, said in 2024.' });
+    const outcome = evaluatePolicy(role('CTO', 'cto'), [old], now);
+    expect(outcome.status).toBe('stale');
+    expect(outcome.reasons.map((r) => r.code)).toContain('SOURCE_TOO_OLD');
   });
 });

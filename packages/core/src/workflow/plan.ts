@@ -210,7 +210,7 @@ export function normalizePlan(proposal: PlannerProposal, today: string): Normali
 
 /**
  * A range from per-task estimates: the plan call, discovery, one verification per company (from workflow version 2,
- * one profile per company too), the report.
+ * one profile per company too; from version 3, a people search per company too), the report.
  */
 export function planEstimate(
   criteria: InterpretedCriteria,
@@ -218,7 +218,8 @@ export function planEstimate(
 ): { costUsdMicrosLow: number; costUsdMicrosHigh: number } {
   const perCompany =
     TASK_COST_ESTIMATES.structured_llm.costUsdMicros +
-    (workflowVersion >= 2 ? TASK_COST_ESTIMATES.agent_loop.costUsdMicros : 0);
+    (workflowVersion >= 2 ? TASK_COST_ESTIMATES.agent_loop.costUsdMicros : 0) +
+    (workflowVersion >= 3 ? TASK_COST_ESTIMATES.agent_loop.costUsdMicros : 0);
   const base =
     TASK_COST_ESTIMATES.structured_llm.costUsdMicros +
     TASK_COST_ESTIMATES.agent_loop.costUsdMicros +

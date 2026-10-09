@@ -1,7 +1,7 @@
 /**
  * Task handlers by type. The scheduler claims only the types listed here: the planner and its gate, discovery (the
- * Research agent), company profiles (the Company Intelligence agent), verification and the report. People,
- * gap-fill, ranking and outreach follow in Phase 5.
+ * Research agent), company profiles (the Company Intelligence agent), people (the People Discovery agent),
+ * verification and the report. Gap-fill, ranking and outreach follow in Phase 5.
  */
 import { createHash } from 'node:crypto';
 import { Budget, ResearchBrief, type ClaimId, type ExecutionId, type SourceId } from '@aoc/contracts';
@@ -15,8 +15,11 @@ import {
   discoveryExpansion,
   judgeItems,
   loadCompanyForVerification,
+  loadCompanyForPeople,
   loadCompanyToProfile,
+  persistPeople,
   persistProfile,
+  type PeopleResult,
   type JudgeVerdictRecord,
   type ProfileResult,
   evaluateBudget,
@@ -33,6 +36,7 @@ import { ExecutionRecorder } from './agents/recorder';
 import type { TokenMinter } from './agents/tokens';
 import type { ToolClient } from './agents/tool-client';
 import { profileRole } from './roles/company';
+import { peopleRole } from './roles/people';
 import { discoveryRole, type DiscoveryOutput } from './roles/research';
 import { VERIFIER_BATCH_SIZE, verifierRole } from './roles/verifier';
 import { plannerRole } from './roles/planner';
@@ -278,6 +282,65 @@ export function createHandlers(deps: AgentDependencies): HandlerRegistry {
       };
     },
 
+    async find_people({ claim, input, db, signal }) {
+      if (input.type !== 'find_people')
+        throw new TaskFailure('INTERNAL_ERROR', 'find_people received the wrong input.');
+      const run = await readRun(db, claim);
+      const brief = ResearchBrief.parse(run.brief);
+      const company = await withWorkspace(db, claim.workspaceId, (tx) =>
+        loadCompanyForPeople(tx, claim.runId, input.companyId),
+      );
+      const { output, recorder } = await runAgent(
+        deps,
+        db,
+        claim,
+        peopleRole,
+        {
+          company: { id: company.id, name: company.name, domain: company.domain },
+          roles: brief.criteria.peopleRoles,
+          knownFacts: company.knownFacts,
+          companyPages: company.companyPages as { sourceId: SourceId; url: string }[],
+          evidencePages: company.evidencePages as { sourceId: SourceId; url: string | null }[],
+          today: today(),
+        },
+        signal,
+      );
+      let people: PeopleResult | null = null;
+      return {
+        kind: 'succeeded',
+        summary: () => ({
+          claimsProposed: output.claims.length,
+          people: people?.personIds.length ?? 0,
+          grounded: people?.grounded ?? 0,
+          rejected: people?.rejected ?? 0,
+          dropped: people?.dropped ?? 0,
+          droppedContactDetails: people?.droppedContactDetails ?? 0,
+        }),
+        // Code keeps role claims at this company about named people, drops contact details, resolves each name to a
+        // person of this company, and grounds and saves the claims like the company's own.
+        write: async (tx) => {
+          await recorder.succeedInTx(tx, output);
+          people = await persistPeople(
+            tx,
+            {
+              run: { id: claim.runId, workspace_id: claim.workspaceId },
+              taskId: claim.taskId,
+              executionId: recorder.executionId,
+              agent: 'people_discovery',
+              now: (deps.now ?? (() => new Date()))(),
+            },
+            input.companyId,
+            output.claims,
+          );
+          return {
+            companyIds: [input.companyId],
+            claimIds: people.claimIds as ClaimId[],
+            sourceIds: people.sourceIds as SourceId[],
+          };
+        },
+      };
+    },
+
     async verify_entity({ claim, input, db, signal }) {
       if (input.type !== 'verify_entity')
         throw new TaskFailure('INTERNAL_ERROR', 'verify_entity received the wrong input.');
@@ -346,6 +409,7 @@ export function createHandlers(deps: AgentDependencies): HandlerRegistry {
               taskId: claim.taskId,
               criteria,
               now: (deps.now ?? (() => new Date()))(),
+              expectPeople: run.workflow_version >= 3,
             },
             company,
             verdicts,

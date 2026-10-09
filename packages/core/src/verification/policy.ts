@@ -17,7 +17,10 @@ import type {
 import { independentGroups } from './independence';
 
 /** Version 2: a funding round's date is checked against source publication dates (DATE_UNVERIFIED). */
-export const POLICY = { id: 'verification', version: 2 } as const;
+export const POLICY = { id: 'verification', version: 3 } as const;
+
+/** Version 3 adds people: a role is current on the company's own recent page, or on recent independent sources. */
+export const ROLE_RECENCY_DAYS = { verified: 365, stale: 548, ownPageRetrieved: 30 } as const;
 
 /** A round reported as news is announced shortly before (or on the day of) the article that reports it. */
 export const ANNOUNCEMENT_WINDOW_DAYS = { before: 30, after: 1 } as const;
@@ -52,7 +55,7 @@ export interface EvidenceFeatures {
   selfPublished: boolean;
 }
 
-export type PolicyStatus = 'verified' | 'probable' | 'rejected';
+export type PolicyStatus = 'verified' | 'probable' | 'stale' | 'rejected';
 
 export interface PolicyOutcome {
   status: PolicyStatus;
@@ -88,7 +91,12 @@ function authoritative(attribute: ClaimAttribute, e: EvidenceFeatures): boolean 
   return SELF_REPORTED.includes(attribute) && (e.selfPublished || e.sourceType === 'press_release');
 }
 
-export function evaluatePolicy(assertion: ClaimAssertion, evidence: readonly EvidenceFeatures[]): PolicyOutcome {
+export function evaluatePolicy(
+  assertion: ClaimAssertion,
+  evidence: readonly EvidenceFeatures[],
+  /** The evaluation time: recency rules (people's roles) depend on it. */
+  now: Date = new Date(),
+): PolicyOutcome {
   const reasons: VerificationReason[] = [];
   const attribute = assertion.attribute;
 
@@ -165,6 +173,7 @@ export function evaluatePolicy(assertion: ClaimAssertion, evidence: readonly Evi
   const onlyUserGenerated = supporting.every((e) => e.tier === 'D');
 
   let verified: boolean;
+  let stale = false;
   switch (attribute) {
     case 'company.funding_round':
       verified = isAuthoritative || tierBGroups >= 2;
@@ -177,6 +186,20 @@ export function evaluatePolicy(assertion: ClaimAssertion, evidence: readonly Evi
     case 'company.sector':
       verified = independent >= 2 || supporting.some((e) => e.selfPublished);
       break;
+    case 'person.current_role': {
+      // The company's team page fetched recently, a registry officer record, or two recent independent sources.
+      const ageDays = (e: EvidenceFeatures) => (now.getTime() - (e.publishedAt ?? e.retrievedAt).getTime()) / DAY_MS;
+      const recentGroups = groupFeatures.filter((g) => g.some((e) => ageDays(e) <= ROLE_RECENCY_DAYS.verified)).length;
+      verified =
+        supporting.some((e) => e.sourceType === 'registry_record') ||
+        supporting.some(
+          (e) =>
+            e.selfPublished && (now.getTime() - e.retrievedAt.getTime()) / DAY_MS <= ROLE_RECENCY_DAYS.ownPageRetrieved,
+        ) ||
+        recentGroups >= 2;
+      if (!verified && supporting.every((e) => ageDays(e) > ROLE_RECENCY_DAYS.stale)) stale = true;
+      break;
+    }
     default:
       verified = independent >= 2;
   }
@@ -229,8 +252,16 @@ export function evaluatePolicy(assertion: ClaimAssertion, evidence: readonly Evi
       dateUnverified,
     };
   }
+  if (stale)
+    reasons.push(
+      reason(
+        'SOURCE_TOO_OLD',
+        `Every source is older than ${String(Math.round(ROLE_RECENCY_DAYS.stale / 30.4))} months: the role may have changed.`,
+        supporting.map((e) => e.evidenceId),
+      ),
+    );
   return {
-    status: verified ? 'verified' : 'probable',
+    status: verified ? 'verified' : stale ? 'stale' : 'probable',
     reasons,
     supporting,
     independentSources: independent,

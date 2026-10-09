@@ -123,6 +123,11 @@ export const ReportContent = z.object({
         findingIds: z.array(FindingId).max(30),
         gapIds: z.array(GapId).max(30),
         outreachArtifactIds: z.array(ArtifactId).max(6),
+        /** People in the brief's roles with a verified or probable current role, verified first (workflow v3+). */
+        decisionMakers: z
+          .array(z.object({ personId: PersonId, claimId: ClaimId }))
+          .max(10)
+          .default([]),
       }),
     )
     .max(25),

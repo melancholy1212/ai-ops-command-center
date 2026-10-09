@@ -14,6 +14,7 @@ import {
   type FindingId,
   type GapId,
   type InterpretedCriteria,
+  type PersonId,
 } from '@aoc/contracts';
 import { toJson, type WorkspaceTransaction } from '@aoc/db';
 import { sql } from 'kysely';
@@ -35,6 +36,7 @@ export const SCORE_WEIGHTS = {
 interface ClaimRow {
   id: string;
   subject_company_id: string;
+  subject_person_id: string | null;
   attribute: string;
   value: unknown;
   status: string;
@@ -65,7 +67,16 @@ function reasonsOf(claim: ClaimRow): { code: string; detail: string }[] {
 export async function compileReport(tx: WorkspaceTransaction, ctx: ReportContext): Promise<CompiledReport> {
   const claims = (await tx
     .selectFrom('claims')
-    .select(['id', 'subject_company_id', 'attribute', 'value', 'status', 'confidence_score', 'verification'])
+    .select([
+      'id',
+      'subject_company_id',
+      'subject_person_id',
+      'attribute',
+      'value',
+      'status',
+      'confidence_score',
+      'verification',
+    ])
     .where('run_id', '=', ctx.run.id)
     .orderBy('created_at')
     .orderBy('id')
@@ -235,6 +246,19 @@ export async function compileReport(tx: WorkspaceTransaction, ctx: ReportContext
         .map((g) => g.id as GapId)
         .slice(0, 30),
       outreachArtifactIds: [],
+      decisionMakers: entry.claims
+        .filter((c) => c.attribute === 'person.current_role' && c.subject_person_id !== null)
+        .filter((c) => {
+          const parsed = ClaimAssertion.safeParse({ attribute: c.attribute, value: c.value });
+          return (
+            parsed.success &&
+            parsed.data.attribute === 'person.current_role' &&
+            ctx.criteria.peopleRoles.includes(parsed.data.value.role)
+          );
+        })
+        .sort((a, b) => Number(b.status === 'verified') - Number(a.status === 'verified'))
+        .slice(0, 10)
+        .map((c) => ({ personId: c.subject_person_id as PersonId, claimId: c.id as ClaimId })),
     });
   }
 

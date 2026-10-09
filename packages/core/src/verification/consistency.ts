@@ -1,6 +1,6 @@
 /**
- * Consistency (docs/provenance.md#verification, step 5): a conflicting value for the same company and
- * attribute makes both claims contested. Rounds of different stages are different facts, not a conflict;
+ * Consistency (docs/provenance.md#verification, step 5): a conflicting value for the same company (and, for a
+ * person claim, the same person) and attribute makes both claims contested. Rounds of different stages are different facts, not a conflict;
  * the same round conflicts when amounts differ by more than 5 % or dates by more than 14 days. Sector tags
  * merge instead of conflicting; free text (description, hiring) never conflicts.
  */
@@ -10,7 +10,12 @@ import { registrableDomainOf } from './identity';
 export interface ConsistencyInput {
   id: string;
   assertion: ClaimAssertion;
+  /** The person a claim is about, for person claims: only claims about the same person can conflict. */
+  personId?: string | null;
 }
+
+/** Seats one person holds at a time. Founder, head-of and other roles combine with them without conflict. */
+const SINGLE_SEATS = new Set(['ceo', 'cto', 'ciso', 'coo', 'cfo', 'cpo']);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -38,6 +43,15 @@ export function conflicts(a: ClaimAssertion, b: ClaimAssertion): boolean {
       return b.attribute === 'company.founded_year' && a.value.year !== b.value.year;
     case 'company.website':
       return b.attribute === 'company.website' && registrableDomainOf(a.value.url) !== registrableDomainOf(b.value.url);
+    case 'person.current_role':
+      // A different current seat at the same company (docs/provenance.md, policy table).
+      return (
+        b.attribute === 'person.current_role' &&
+        a.value.companyId === b.value.companyId &&
+        SINGLE_SEATS.has(a.value.role) &&
+        SINGLE_SEATS.has(b.value.role) &&
+        a.value.role !== b.value.role
+      );
     default:
       return false;
   }
@@ -50,7 +64,7 @@ export function findConflicts(claims: readonly ConsistencyInput[]): Map<string, 
     for (let j = i + 1; j < claims.length; j += 1) {
       const a = claims[i];
       const b = claims[j];
-      if (!a || !b || !conflicts(a.assertion, b.assertion)) continue;
+      if (!a || !b || (a.personId ?? null) !== (b.personId ?? null) || !conflicts(a.assertion, b.assertion)) continue;
       out.set(a.id, [...(out.get(a.id) ?? []), b.id]);
       out.set(b.id, [...(out.get(b.id) ?? []), a.id]);
     }

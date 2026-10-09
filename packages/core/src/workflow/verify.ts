@@ -19,7 +19,7 @@ import { toJson, type WorkspaceTransaction } from '@aoc/db';
 import { findConflicts } from '../verification/consistency';
 import { outsideCriteria } from '../verification/criteria';
 import { contextAround, type Span } from '../verification/grounding';
-import { judgeStatement } from '../verification/statement';
+import { judgeStatement, renderPersonStatement } from '../verification/statement';
 import {
   computeConfidence,
   evaluatePolicy,
@@ -50,6 +50,8 @@ export interface EvidenceForVerification {
 export interface ClaimForVerification {
   id: string;
   statement: string;
+  /** For a claim about a person: who. Null for company claims. */
+  person: { id: string; name: string } | null;
   status: ClaimStatus;
   assertion: ClaimAssertion;
   reasons: VerificationReason[];
@@ -81,16 +83,27 @@ export async function loadCompanyForVerification(
     .select(['id', 'name', 'primary_domain'])
     .where('id', '=', companyId)
     .executeTakeFirstOrThrow();
+  // A company's claims include those about its people (anchored to it by subject_company_id).
   const claims = await tx
     .selectFrom('claims')
-    .select(['id', 'statement', 'status', 'attribute', 'value', 'verification'])
-    .where('run_id', '=', runId)
-    .where('subject_company_id', '=', companyId)
+    .leftJoin('people', 'people.id', 'claims.subject_person_id')
+    .select([
+      'claims.id',
+      'claims.statement',
+      'claims.status',
+      'claims.attribute',
+      'claims.value',
+      'claims.verification',
+      'claims.subject_person_id',
+      'people.full_name as person_name',
+    ])
+    .where('claims.run_id', '=', runId)
+    .where('claims.subject_company_id', '=', companyId)
     // Rows written in one transaction share created_at (now() is per transaction), and ids are random per run:
     // tie-break on content, so identical runs send the verifier identical batches (and replays match).
-    .orderBy('created_at')
-    .orderBy('attribute')
-    .orderBy('statement')
+    .orderBy('claims.created_at')
+    .orderBy('claims.attribute')
+    .orderBy('claims.statement')
     .execute();
   const evidence =
     claims.length === 0
@@ -131,6 +144,7 @@ export async function loadCompanyForVerification(
     claims: claims.map((c) => ({
       id: c.id,
       statement: c.statement,
+      person: c.subject_person_id ? { id: c.subject_person_id, name: c.person_name ?? '' } : null,
       status: c.status as ClaimStatus,
       assertion: ClaimAssertion.parse({ attribute: c.attribute, value: c.value }),
       reasons: (c.verification as { reasons?: VerificationReason[] }).reasons ?? [],
@@ -167,7 +181,9 @@ export function judgeItems(company: CompanyForVerification): JudgeItem[] {
         .filter((e) => e.grounding !== 'not_found' && e.judge === null)
         .map((e) => ({
           evidenceId: e.id,
-          statement: judgeStatement(company.name, c.assertion),
+          statement: c.person
+            ? renderPersonStatement(c.person.name, company.name, c.assertion, { withSince: false })
+            : judgeStatement(company.name, c.assertion),
           quote: e.quote,
           context: contextAround(e.source.text, e.spans[0] ?? { start: 0, end: 0 }, 300),
         })),
@@ -184,6 +200,7 @@ export interface JudgeVerdictRecord {
 export interface VerificationSummary {
   verified: number;
   probable: number;
+  stale: number;
   contested: number;
   rejected: number;
   outsideCriteria: number;
@@ -195,6 +212,8 @@ export interface VerifyContext {
   taskId: string;
   criteria: InterpretedCriteria;
   now: Date;
+  /** The run looks for people (workflow version 3+): a company without a decision maker is a coverage gap. */
+  expectPeople?: boolean;
 }
 
 export async function applyVerification(
@@ -215,7 +234,7 @@ export async function applyVerification(
 
   interface Decided {
     claim: ClaimForVerification;
-    status: 'verified' | 'probable' | 'rejected' | 'contested';
+    status: 'verified' | 'probable' | 'stale' | 'rejected' | 'contested';
     reasons: VerificationReason[];
     outcome: PolicyOutcome | null;
     conflicting: string[];
@@ -239,7 +258,7 @@ export async function applyVerification(
       context: contextAround(e.source.text, e.spans[0] ?? { start: 0, end: 0 }, 300),
       selfPublished: company.primaryDomain !== null && e.source.registrableDomain === company.primaryDomain,
     }));
-    const outcome = evaluatePolicy(claim.assertion, features);
+    const outcome = evaluatePolicy(claim.assertion, features, ctx.now);
     const reasons = [...outcome.reasons];
     let status: Decided['status'] = outcome.status;
     const outside = status === 'rejected' ? null : outsideCriteria(claim.assertion, ctx.criteria);
@@ -252,7 +271,9 @@ export async function applyVerification(
 
   // Consistency: conflicting values of the same attribute contest each other.
   const standing = decided.filter((d) => d.status === 'verified' || d.status === 'probable');
-  const conflicts = findConflicts(standing.map((d) => ({ id: d.claim.id, assertion: d.claim.assertion })));
+  const conflicts = findConflicts(
+    standing.map((d) => ({ id: d.claim.id, assertion: d.claim.assertion, personId: d.claim.person?.id ?? null })),
+  );
   for (const d of standing) {
     const others = conflicts.get(d.claim.id);
     if (!others) continue;
@@ -264,13 +285,18 @@ export async function applyVerification(
   const summary: VerificationSummary = {
     verified: 0,
     probable: 0,
+    stale: 0,
     contested: 0,
     rejected: 0,
     outsideCriteria: 0,
     gaps: 0,
   };
   for (const d of decided) {
-    const scored = d.status !== 'rejected' && d.outcome ? computeConfidence(d.status, d.outcome, ctx.now) : null;
+    // Stale and rejected claims carry no confidence: they are not standing facts.
+    const scored =
+      d.outcome && (d.status === 'verified' || d.status === 'probable' || d.status === 'contested')
+        ? computeConfidence(d.status, d.outcome, ctx.now)
+        : null;
     const reasons = [...d.reasons, ...(scored?.reasons ?? [])].slice(0, 20);
     await tx
       .updateTable('claims')
@@ -308,15 +334,35 @@ export async function applyVerification(
 
   // Coverage: required attributes with no standing claim are recorded, not silently omitted. Workflow version 1
   // has no gap-fill round, so they are unavailable for this run.
-  for (const attribute of REQUIRED_COMPANY_ATTRIBUTES) {
-    const forAttribute = decided.filter((d) => d.claim.assertion.attribute === attribute);
+  // With people in the workflow, a decision maker in one of the brief's roles is required too.
+  const covered: { attribute: string; claims: Decided[] }[] = [
+    ...REQUIRED_COMPANY_ATTRIBUTES.map((attribute) => ({
+      attribute: attribute,
+      claims: decided.filter((d) => d.claim.assertion.attribute === attribute),
+    })),
+    ...(ctx.expectPeople
+      ? [
+          {
+            attribute: 'person.current_role',
+            claims: decided.filter(
+              (d) =>
+                d.claim.assertion.attribute === 'person.current_role' &&
+                ctx.criteria.peopleRoles.includes(d.claim.assertion.value.role),
+            ),
+          },
+        ]
+      : []),
+  ];
+  for (const { attribute, claims: forAttribute } of covered) {
     if (forAttribute.some((d) => d.status === 'verified' || d.status === 'probable')) continue;
     const reason =
       forAttribute.length === 0
         ? 'no_claim'
         : forAttribute.some((d) => d.status === 'contested')
           ? 'conflict_unresolved'
-          : 'only_rejected_claims';
+          : forAttribute.some((d) => d.status === 'stale')
+            ? 'only_stale_claims'
+            : 'only_rejected_claims';
     const inserted = await tx
       .insertInto('research_gaps')
       .values({

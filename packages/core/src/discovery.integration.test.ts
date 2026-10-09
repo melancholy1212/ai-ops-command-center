@@ -10,6 +10,7 @@ import { discoveryExpansion, persistDiscovery, type DiscoveryContext } from './w
 import { applyVerification, judgeItems, loadCompanyForVerification } from './workflow/verify';
 import { loadCompanyToProfile, persistProfile } from './workflow/profile';
 import { compileReport } from './workflow/report';
+import { persistPeople } from './workflow/people';
 import { canonicalJson, sha256Hex } from './canonical-json';
 
 let h: TestHarness;
@@ -341,6 +342,24 @@ describe('persistDiscovery', () => {
       { ref: `profile:${first?.id ?? ''}`, mode: 'hard' },
     ]);
     expect(v2.tasks.at(-1)?.dependsOn?.every((d) => d.mode === 'soft')).toBe(true);
+    // Version 3: people are searched after the profile; verification waits for them, but softly.
+    const v3 = discoveryExpansion(result.companies, criteria.maxCompanies, 3);
+    expect(v3.tasks.map((t) => t.type)).toEqual([
+      'profile_company',
+      'profile_company',
+      'find_people',
+      'find_people',
+      'verify_entity',
+      'verify_entity',
+      'compile_report',
+    ]);
+    expect(v3.tasks.find((t) => t.ref === `people:${first?.id ?? ''}`)?.dependsOn).toEqual([
+      { ref: `profile:${first?.id ?? ''}`, mode: 'hard' },
+    ]);
+    expect(v3.tasks.find((t) => t.ref === `verify:${first?.id ?? ''}`)?.dependsOn).toEqual([
+      { ref: `profile:${first?.id ?? ''}`, mode: 'hard' },
+      { ref: `people:${first?.id ?? ''}`, mode: 'soft' },
+    ]);
   });
 });
 
@@ -988,5 +1007,249 @@ describe('persistProfile', () => {
     expect(taken.domain).toBeNull();
     expect(taken.domainNotRecorded).toBe('northwind.example already belongs to Northwind Holdings.');
     expect(await domainOf(companyId)).toBeNull();
+  });
+});
+
+describe('people', () => {
+  const peopleCtx = (ctx: DiscoveryContext) => ({ ...ctx, agent: 'people_discovery' as const });
+  const person = (
+    fullName: string,
+    companyId: string,
+    title: string,
+    role: 'founder' | 'ceo' | 'cto' | 'head_of_sales',
+    sourceId: SourceId,
+    quote: string,
+    rawValue = title,
+  ): ProposedClaim => ({
+    subject: { kind: 'new_person', fullName },
+    assertion: {
+      attribute: 'person.current_role',
+      value: { companyId: companyId as CompanyId, title, role, since: null },
+    },
+    rawValue,
+    evidence: [{ sourceId, quote }],
+  });
+
+  /** Oplane, discovered with a seed round and a headquarters, on its own domain. */
+  async function oplane(ctx: DiscoveryContext): Promise<string> {
+    const article = await source(
+      'Malmo-based Oplane has raised a EUR 4.5 million seed round led by Seed Capital. Oplane is headquartered in Malmo, Sweden.',
+      'B',
+      '2026-06-01T08:00:00Z',
+    );
+    const op = company('Oplane', 'oplane.example');
+    const result = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistDiscovery(tx, ctx, [
+        claim(
+          op,
+          {
+            attribute: 'company.funding_round',
+            value: {
+              stage: 'seed',
+              amount: 4_500_000,
+              currency: 'EUR',
+              announcedOn: '2026-06-01',
+              leadInvestors: ['Seed Capital'],
+              otherInvestors: [],
+            },
+          },
+          article,
+          'Malmo-based Oplane has raised a EUR 4.5 million seed round led by Seed Capital',
+        ),
+        claim(
+          op,
+          { attribute: 'company.hq_country', value: { country: 'SE' } },
+          article,
+          'Oplane is headquartered in Malmo, Sweden',
+        ),
+      ]),
+    );
+    return result.companies[0]!.id;
+  }
+
+  async function verify(ctx: DiscoveryContext, companyId: string) {
+    const loaded = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      loadCompanyForVerification(tx, ctx.run.id, companyId),
+    );
+    await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      applyVerification(
+        tx,
+        { run: ctx.run, taskId: ctx.taskId, criteria, now: ctx.now, expectPeople: true },
+        loaded,
+        judgeItems(loaded).map((i) => ({
+          evidenceId: i.evidenceId,
+          verdict: 'supports',
+          reason: 'Stated.',
+          llmCallId: null,
+        })),
+      ),
+    );
+    return loaded;
+  }
+
+  it('writes role claims of named people at the company, drops the rest, and verifies them', async () => {
+    const ctx = await context();
+    const companyId = await oplane(ctx);
+    const team = await source(
+      'Our team. Anna Svensson, co-founder and CEO, leads Oplane. Erik Berg, co-founder and CTO, builds the platform. Write to us at hello@oplane.example.',
+      'C',
+      '2026-09-28T08:00:00Z',
+      'oplane.example',
+      'company_website',
+    );
+    const old = await source(
+      "Oplane's head of sales Maria Lund joined from Spotify last week, the company said.",
+      'B',
+      '2024-01-10T08:00:00Z',
+      'old-news.example',
+    );
+    const annaQuote = 'Anna Svensson, co-founder and CEO, leads Oplane';
+    const result = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistPeople(tx, peopleCtx(ctx), companyId, [
+        person('Anna Svensson', companyId, 'Co-founder and CEO', 'ceo', team, annaQuote),
+        person('Anna Svensson', companyId, 'Co-founder', 'founder', team, annaQuote),
+        person(
+          'Erik Berg',
+          companyId,
+          'Co-founder and CTO',
+          'cto',
+          team,
+          'Erik Berg, co-founder and CTO, builds the platform',
+        ),
+        person(
+          'Maria Lund',
+          companyId,
+          'Head of sales',
+          'head_of_sales',
+          old,
+          "Oplane's head of sales Maria Lund joined from Spotify",
+        ),
+        // Someone else's title: Erik is not named where the quote says CEO.
+        person('Erik Berg', companyId, 'Co-founder and CEO', 'ceo', team, annaQuote),
+        // Dropped: a contact detail, a role at another company, a one-word name.
+        person('Anna Svensson', companyId, 'CEO', 'ceo', team, annaQuote, 'CEO, hello@oplane.example'),
+        person('Anna Svensson', randomUUID(), 'CEO', 'ceo', team, annaQuote),
+        person('Anna', companyId, 'CEO', 'ceo', team, annaQuote),
+      ]),
+    );
+    expect(result).toMatchObject({ dropped: 2, droppedContactDetails: 1 });
+    expect(result.personIds).toHaveLength(3);
+    const { rows: stored } = await h.admin.query<{ n: number }>(
+      `select count(*)::int as n from public.claims where run_id = $1 and (raw_value like '%@%' or statement like '%@%')`,
+      [ctx.run.id],
+    );
+    expect(stored[0]?.n).toBe(0);
+
+    await verify(ctx, companyId);
+    const { rows } = await h.admin.query<{ statement: string; status: string; reasons: string[] | null }>(
+      `select statement, status, (select array_agg(r ->> 'code') from jsonb_array_elements(verification -> 'reasons') r) as reasons
+       from public.claims where run_id = $1 and attribute = 'person.current_role' order by statement`,
+      [ctx.run.id],
+    );
+    expect(rows.map((r) => [r.statement, r.status])).toEqual([
+      ['Anna Svensson is Co-founder and CEO at Oplane.', 'verified'],
+      ['Anna Svensson is Co-founder at Oplane.', 'verified'],
+      ['Erik Berg is Co-founder and CEO at Oplane.', 'rejected'],
+      ['Erik Berg is Co-founder and CTO at Oplane.', 'verified'],
+      ['Maria Lund is Head of sales at Oplane.', 'stale'],
+    ]);
+    expect(rows.find((r) => r.statement.startsWith('Erik Berg is Co-founder and CEO'))?.reasons).toContain(
+      'VALUE_NOT_IN_QUOTE',
+    );
+
+    // The report lists the decision makers in the brief's roles (founder here).
+    await h.admin.query(
+      `insert into public.tasks (run_id, workspace_id, type, kind, status, subject_company_id, input, output, idempotency_key,
+         attempt, max_attempts, finished_at)
+       values ($1, $2, 'verify_entity', 'structured_llm', 'succeeded', $3, jsonb_build_object('type', 'verify_entity', 'companyId', $4::text),
+         '{}'::jsonb, 'verify_entity:' || $4 || ':r1', 1, 2, now())`,
+      [ctx.run.id, tenant.workspaceId, companyId, companyId],
+    );
+    const report = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      compileReport(tx, { run: ctx.run, criteria, now: ctx.now }),
+    );
+    const { rows: artifact } = await h.admin.query<{
+      content: { companies: { companyId: string; decisionMakers: { personId: string }[] }[] };
+    }>('select content from public.artifacts where id = $1', [report.artifactId]);
+    const entry = artifact[0]?.content.companies.find((c) => c.companyId === companyId);
+    const { rows: anna } = await h.admin.query<{ id: string }>(
+      `select id from public.people where workspace_id = $1 and normalized_name = 'anna svensson'`,
+      [tenant.workspaceId],
+    );
+    expect(entry?.decisionMakers.map((d) => d.personId)).toEqual([anna[0]?.id]);
+  });
+
+  it('resolves a name to the same person at the same company across runs, and to a new person elsewhere', async () => {
+    const first = await context();
+    const companyId = await oplane(first);
+    const page = await source(
+      'Anna Svensson, co-founder and CEO, leads Oplane.',
+      'C',
+      '2026-09-28T08:00:00Z',
+      'oplane.example',
+      'company_website',
+    );
+    const quote = 'Anna Svensson, co-founder and CEO, leads Oplane';
+    const a = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistPeople(tx, peopleCtx(first), companyId, [
+        person('Anna Svensson', companyId, 'Co-founder and CEO', 'ceo', page, quote),
+      ]),
+    );
+    const second = await context();
+    const again = await oplane(second);
+    expect(again).toBe(companyId);
+    const b = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistPeople(tx, peopleCtx(second), companyId, [
+        person('ANNA  SVENSSON', companyId, 'Co-founder and CEO', 'ceo', page, quote),
+      ]),
+    );
+    expect(b.personIds).toEqual(a.personIds);
+
+    const elsewhere = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistDiscovery(tx, second, [
+        claim(
+          company('Fjordlight', 'fjordlight.example'),
+          { attribute: 'company.hq_country', value: { country: 'NO' } },
+          page,
+          'Anna Svensson, co-founder and CEO, leads Oplane',
+        ),
+      ]),
+    );
+    const otherId = elsewhere.companies[0]!.id;
+    const c = await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistPeople(tx, peopleCtx(second), otherId, [person('Anna Svensson', otherId, 'CEO', 'ceo', page, quote)]),
+    );
+    expect(c.personIds[0]).not.toBe(a.personIds[0]);
+  });
+
+  it('records a coverage gap when no one in the brief roles is established', async () => {
+    const ctx = await context();
+    const companyId = await oplane(ctx);
+    const page = await source(
+      'Erik Berg, co-founder and CTO, builds the platform at Oplane.',
+      'C',
+      '2026-09-28T08:00:00Z',
+      'oplane.example',
+      'company_website',
+    );
+    // A CTO, but the brief asks for founders, and this page does not call him one.
+    await withWorkspace(h.db, tenant.workspaceId, (tx) =>
+      persistPeople(tx, peopleCtx(ctx), companyId, [
+        person(
+          'Erik Berg',
+          companyId,
+          'CTO',
+          'cto',
+          page,
+          'Erik Berg, co-founder and CTO, builds the platform at Oplane',
+        ),
+      ]),
+    );
+    await verify(ctx, companyId);
+    const { rows } = await h.admin.query<{ attribute: string; reason: string }>(
+      `select attribute, reason from public.research_gaps where run_id = $1 and attribute = 'person.current_role'`,
+      [ctx.run.id],
+    );
+    expect(rows).toEqual([{ attribute: 'person.current_role', reason: 'no_claim' }]);
   });
 });

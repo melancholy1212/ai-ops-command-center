@@ -20,6 +20,7 @@ const QUOTE = 'Northwind Climate, the Stockholm carbon accounting startup, raise
 const SITE = '5f0a3c1e-0000-4000-8000-0000000000bb';
 const SITE_URL = 'https://northwind.example/';
 const SITE_QUOTE = 'Northwind Climate AB is headquartered in Stockholm, Sweden';
+const TEAM_QUOTE = 'Anna Svensson, co-founder and CEO, leads the team at Northwind Climate';
 const silent = createLogger('agents-test', 'silent');
 
 let h: TestHarness;
@@ -38,13 +39,17 @@ afterAll(async () => {
   await h.close();
 });
 
-/** A run with an approved brief and one ready discover_companies task (task-scoped, as evals use it). */
-async function discoveryRun(budget: Budget = DEFAULT_RUN_BUDGET): Promise<RunId> {
+/**
+ * A run with an approved brief and one ready discover_companies task (task-scoped, as evals use it), on the given
+ * workflow version: 2 (profile, verify) unless a test is about people (3).
+ */
+async function discoveryRun(budget: Budget = DEFAULT_RUN_BUDGET, workflowVersion = 2): Promise<RunId> {
   const runId = await createRun(h.db, { userId: tenant.userId }, tenant.workspaceId, {
     projectId: tenant.projectId,
     objective: 'Find seed-stage climate software companies in the Nordics.',
     budget,
   });
+  await h.admin.query('update public.runs set workflow_version = $2 where id = $1', [runId, workflowVersion]);
   const actor = { kind: 'system' } as const;
   await withWorkspace(h.db, tenant.workspaceId, async (tx) => {
     const run = await lockRun(tx, runId);
@@ -109,7 +114,7 @@ async function saveSource(): Promise<void> {
 
 /** The company's homepage snapshot, saved as the MCP server would have saved it. */
 async function saveSite(): Promise<void> {
-  const text = `${SITE_QUOTE}. We build carbon accounting software for manufacturers.`;
+  const text = `${SITE_QUOTE}. We build carbon accounting software for manufacturers. ${TEAM_QUOTE}.`;
   await h.admin.query(
     `insert into public.sources (id, workspace_id, requested_url, final_url, final_url_hash, host, registrable_domain,
        source_type, tier, origin, retrieved_at, http, published_at_method, raw_sha256, content_sha256, text, text_length,
@@ -156,6 +161,27 @@ const call = (name: string, args: unknown, n: number, inputTokens = 10_000): Scr
   toolCalls: [{ id: `call_${String(n)}`, name, argumentsJson: JSON.stringify(args) }],
   usage: usage(inputTokens),
 });
+
+/** A people search's result, which names the company by the id its task message gives, as a model would. */
+const submitPeople =
+  (claims: (companyId: string) => unknown[]): ScriptedTurn =>
+  (request: LlmRequest): LlmResponse => {
+    const first = request.messages[0];
+    const companyId = /companyId ([0-9a-f-]{36})/.exec(first?.role === 'user' ? first.content : '')?.[1] ?? '';
+    const toolCalls = [
+      { id: 'call_people', name: 'submit_result', argumentsJson: JSON.stringify({ claims: claims(companyId) }) },
+    ];
+    return {
+      text: null,
+      toolCalls,
+      stopReason: 'tool_use',
+      usage: usage(3_000),
+      cacheStatus: 'not_supported',
+      providerContent: { role: 'assistant', content: null, tool_calls: toolCalls },
+      latencyMs: 1,
+      retryCount: 0,
+    };
+  };
 
 /** A profile's result, which names the company by the id its task message gives, as a model would. */
 const submitProfile =
@@ -428,6 +454,79 @@ describe('discovery agent', () => {
     );
     // A news article and the company's own page: two independent sources, one self-published. Verified.
     expect(verified).toEqual([{ status: 'verified', evidence: '2' }]);
+    expect(await waitForTask(runId, ['succeeded', 'failed'], 'compile_report')).toBe('succeeded');
+  }, 30_000);
+
+  it('finds the company people on its own site, and verification establishes them', async () => {
+    await saveSource();
+    await saveSite();
+    const runId = await discoveryRun(DEFAULT_RUN_BUDGET, 3);
+    const role = (companyId: string, title: string, r: string) => ({
+      subject: { kind: 'new_person', fullName: 'Anna Svensson' },
+      assertion: { attribute: 'person.current_role', value: { companyId, title, role: r, since: null } },
+      rawValue: title,
+      evidence: [{ sourceId: SITE, quote: TEAM_QUOTE }],
+    });
+    start([
+      call('web_search', { query: 'Nordic climate software seed round' }, 1),
+      call('fetch_page', { url: 'https://news.example/a' }, 2),
+      call('submit_result', { claims: [claim] }, 3),
+      call('fetch_page', { url: SITE_URL }, 4),
+      submitProfile(() => []),
+      call('fetch_page', { url: SITE_URL }, 5),
+      // A contact detail is sent back for repair; the model resubmits without it.
+      submitPeople((companyId) => [
+        role(companyId, 'Co-founder and CEO', 'ceo'),
+        role(companyId, 'Co-founder', 'founder'),
+        { ...role(companyId, 'CEO', 'ceo'), rawValue: 'CEO, anna@northwind.example' },
+      ]),
+      submitPeople((companyId) => [
+        role(companyId, 'Co-founder and CEO', 'ceo'),
+        role(companyId, 'Co-founder', 'founder'),
+      ]),
+      {
+        text: JSON.stringify({
+          verdicts: [0, 1, 2].map((index) => ({ index, verdict: 'supports', reason: 'Stated.' })),
+        }),
+        usage: usage(2_000),
+      },
+    ]);
+    expect(await waitForTask(runId, ['succeeded', 'failed'], 'find_people')).toBe('succeeded');
+    const { rows: people } = await h.admin.query<{ output: { summary: unknown } }>(
+      "select output from public.tasks where run_id = $1 and type = 'find_people'",
+      [runId],
+    );
+    expect(people[0]?.output.summary).toEqual({
+      claimsProposed: 2,
+      people: 1,
+      grounded: 2,
+      rejected: 0,
+      dropped: 0,
+      droppedContactDetails: 0,
+    });
+    const { rows: repair } = await h.admin.query<{ content: string }>(
+      `select m.content::text as content from public.agent_messages m join public.agent_executions e on e.id = m.execution_id
+       where e.run_id = $1 and e.agent = 'people_discovery' and m.role = 'tool' order by m.seq`,
+      [runId],
+    );
+    expect(repair.map((r) => r.content).join(' ')).toContain('remove the contact detail');
+    expect(await waitForTask(runId, ['succeeded', 'failed'], 'verify_entity')).toBe('succeeded');
+    const { rows: roles } = await h.admin.query<{ statement: string; status: string }>(
+      `select statement, status from public.claims where run_id = $1 and attribute = 'person.current_role' order by statement`,
+      [runId],
+    );
+    // The company's own team page, fetched in this run: authoritative for who holds which role today.
+    expect(roles).toEqual([
+      { statement: 'Anna Svensson is Co-founder and CEO at Northwind Climate.', status: 'verified' },
+      { statement: 'Anna Svensson is Co-founder at Northwind Climate.', status: 'verified' },
+    ]);
+    expect((await execution(runId)).map((e) => e.agent_version)).toEqual([
+      'research.discovery@6',
+      'company.profile@1',
+      'people.discovery@1',
+      'verifier@1',
+    ]);
+    // The report itself (decision makers per company) is covered by the core tests: this company has no round.
     expect(await waitForTask(runId, ['succeeded', 'failed'], 'compile_report')).toBe('succeeded');
   }, 30_000);
 

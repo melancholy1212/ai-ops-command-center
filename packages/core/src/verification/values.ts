@@ -123,6 +123,13 @@ export function valueInText(assertion: ClaimAssertion, text: string): boolean | 
     }
     case 'company.hq_city':
       return hasWord(normalized, normalizeForMatch(assertion.value.city).text);
+    case 'person.current_role': {
+      // The title as stated: every word of it (short connectives aside) appears near the quote.
+      const words = normalizeForMatch(assertion.value.title)
+        .text.split(/[^\p{L}\p{N}]+/u)
+        .filter((w) => w.length > 2 && !['and', 'och', 'og', 'the', 'for'].includes(w));
+      return words.length === 0 ? null : words.every((w) => hasWord(normalized, w));
+    }
     case 'company.founded_year':
       return hasWord(normalized, String(assertion.value.year));
     default:
