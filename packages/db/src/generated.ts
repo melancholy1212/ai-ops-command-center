@@ -139,6 +139,7 @@ export interface Claims {
   statement: string;
   status: Generated<string>;
   subject_company_id: string;
+  subject_person_id: string | null;
   superseded_by: string | null;
   updated_at: Generated<Timestamp>;
   value: Json;
@@ -239,6 +240,16 @@ export interface LlmCalls {
   started_at: Timestamp;
   stop_reason: string;
   task_id: string;
+  workspace_id: string;
+}
+
+export interface People {
+  created_at: Generated<Timestamp>;
+  first_seen_run_id: string | null;
+  full_name: string;
+  id: Generated<string>;
+  normalized_name: string;
+  updated_at: Generated<Timestamp>;
   workspace_id: string;
 }
 
@@ -420,6 +431,7 @@ export interface DB {
   finding_claims: FindingClaims;
   findings: Findings;
   llm_calls: LlmCalls;
+  people: People;
   projects: Projects;
   research_gaps: ResearchGaps;
   run_events: RunEvents;

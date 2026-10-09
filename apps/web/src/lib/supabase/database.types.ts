@@ -392,6 +392,7 @@ export type Database = {
           statement: string;
           status: string;
           subject_company_id: string;
+          subject_person_id: string | null;
           superseded_by: string | null;
           updated_at: string;
           value: Json;
@@ -417,6 +418,7 @@ export type Database = {
           statement: string;
           status?: string;
           subject_company_id: string;
+          subject_person_id?: string | null;
           superseded_by?: string | null;
           updated_at?: string;
           value: Json;
@@ -442,6 +444,7 @@ export type Database = {
           statement?: string;
           status?: string;
           subject_company_id?: string;
+          subject_person_id?: string | null;
           superseded_by?: string | null;
           updated_at?: string;
           value?: Json;
@@ -461,6 +464,13 @@ export type Database = {
             columns: ['subject_company_id', 'workspace_id'];
             isOneToOne: false;
             referencedRelation: 'companies';
+            referencedColumns: ['id', 'workspace_id'];
+          },
+          {
+            foreignKeyName: 'claims_subject_person_fkey';
+            columns: ['subject_person_id', 'workspace_id'];
+            isOneToOne: false;
+            referencedRelation: 'people';
             referencedColumns: ['id', 'workspace_id'];
           },
           {
@@ -840,6 +850,44 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'runs';
             referencedColumns: ['id', 'workspace_id'];
+          },
+        ];
+      };
+      people: {
+        Row: {
+          created_at: string;
+          first_seen_run_id: string | null;
+          full_name: string;
+          id: string;
+          normalized_name: string;
+          updated_at: string;
+          workspace_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          first_seen_run_id?: string | null;
+          full_name: string;
+          id?: string;
+          normalized_name: string;
+          updated_at?: string;
+          workspace_id: string;
+        };
+        Update: {
+          created_at?: string;
+          first_seen_run_id?: string | null;
+          full_name?: string;
+          id?: string;
+          normalized_name?: string;
+          updated_at?: string;
+          workspace_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'people_workspace_id_fkey';
+            columns: ['workspace_id'];
+            isOneToOne: false;
+            referencedRelation: 'workspaces';
+            referencedColumns: ['id'];
           },
         ];
       };
