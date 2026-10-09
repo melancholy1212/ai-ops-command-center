@@ -146,6 +146,17 @@ Per claim, in order. Everything except step 3 is deterministic code.
    company with `OUTSIDE_CRITERIA`.
 8. **Coverage:** required attributes with no verified or probable claim become research gaps.
 
+### Policy v3
+
+Version 3 (2026-10-09) adds people. `person.current_role` is **verified** by the company's own page (its team page)
+fetched within the last 30 days, a registry officer record, or two independent sources at most 12 months old;
+otherwise **probable** while a supporting source is recent enough, with the usual −0.10 for a source older than 12
+months; **stale** (`SOURCE_TOO_OLD`, no confidence) when every supporting source is older than 18 months. Two
+different C-suite seats (CEO, CTO, CISO, COO, CFO, CPO) for one person at one company contest each other; founder,
+head-of and other roles combine with any seat. Conflicts never cross people. A role's value counts as in the quote
+only when the title's words and the person's surname both appear in the quote or its sentence, so a title next to
+someone else's name is `VALUE_NOT_IN_QUOTE`. The judge reads "Name is Title at Company." without the start date.
+
 ### Policy v2
 
 Version 2 (2026-10-01) adds the date check for funding rounds: the claimed announcement date must fall on, or up to

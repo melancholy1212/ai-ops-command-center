@@ -57,7 +57,10 @@ Kysely using types generated from the database; the browser reads through Supaba
 ### Knowledge and evidence
 - `companies` (name, normalized_name, primary_domain, country). `unique (workspace_id, primary_domain)` where not
   null; trigram index on normalized_name.
-- `people` (full_name, normalized_name). Trigram index.
+- `people` (full_name, normalized_name). Trigram index. Implemented in Phase 5 (`20261009120000_people.sql`). A
+  claim about a person keeps `subject_company_id` (the company it was gathered for) and also sets
+  `subject_person_id`; checks tie person attributes to a person and a role's `companyId` to the anchoring company.
+  `research_gaps` accepts `person.current_role` at company level: no decision maker established.
 - `entity_identifiers` (company_id or person_id, scheme, value, source_id). `CHECK num_nonnulls(company_id, person_id) = 1`;
   `unique (workspace_id, scheme, value)`.
 - `discovered_urls` (run_id or mcp_session_id, url, normalized_url, normalized_url_hash, origin_kind, origin JSONB).

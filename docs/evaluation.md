@@ -172,6 +172,7 @@ It never records or updates a baseline.
 | `verify-outside-criteria` | A US headquarters is `OUTSIDE_CRITERIA`, company excluded; a Norwegian company ranked |
 | `verify-undisclosed-amount` | A null amount stands; an invented EUR 5M on the same quote is rejected (`VALUE_NOT_IN_QUOTE`) |
 | `verify-entity-resolution` | "Halcyon Robotics", "Halcyon Robotics AB" (with domain) and "HALCYON ROBOTICS AB" (without) are one company |
+| `verify-people-roles` | The company's own team page verifies its CEO and CTO; a title quoted next to someone else's name is rejected (`VALUE_NOT_IN_QUOTE`); a role from a 2024 article is stale (`SOURCE_TOO_OLD`); the report names the CEO as decision maker |
 | `verify-own-site-authority` | An article links the company's name to its site (and to LinkedIn, ignored): the profile reads the homepage, the domain is recorded, and the round (`AUTHORITATIVE_SOURCE`), headquarters (`INDEPENDENT_SOURCES`) and sector verify |
 | `verify-ungrounded-quote` | An invented quote and a paraphrase of a true sentence are both rejected (`QUOTE_NOT_FOUND`); a quote differing only in case grounds |
 

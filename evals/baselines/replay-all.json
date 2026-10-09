@@ -88,7 +88,8 @@
             "company": "Quillmark",
             "reason": "No verified or probable funding round inside the brief."
           }
-        ]
+        ],
+        "decisionMakers": {}
       },
       "flaggedHosts": [],
       "judgeVerdicts": {
@@ -145,7 +146,10 @@
         "ranked": [
           "Halcyon Robotics"
         ],
-        "excluded": []
+        "excluded": [],
+        "decisionMakers": {
+          "Halcyon Robotics": []
+        }
       },
       "flaggedHosts": [],
       "judgeVerdicts": {
@@ -193,7 +197,10 @@
         "ranked": [
           "Corvid Grid"
         ],
-        "excluded": []
+        "excluded": [],
+        "decisionMakers": {
+          "Corvid Grid": []
+        }
       },
       "flaggedHosts": [
         "nordicbytes.example"
@@ -270,7 +277,10 @@
             "company": "Pinecrest Carbon",
             "reason": "Headquartered in US, outside SE, NO, DK, FI, IS."
           }
-        ]
+        ],
+        "decisionMakers": {
+          "Fjordlight": []
+        }
       },
       "flaggedHosts": [],
       "judgeVerdicts": {
@@ -317,7 +327,10 @@
         "ranked": [
           "Brightloom"
         ],
-        "excluded": []
+        "excluded": [],
+        "decisionMakers": {
+          "Brightloom": []
+        }
       },
       "flaggedHosts": [],
       "judgeVerdicts": {
@@ -375,7 +388,10 @@
         "ranked": [
           "Sundial Labs"
         ],
-        "excluded": []
+        "excluded": [],
+        "decisionMakers": {
+          "Sundial Labs": []
+        }
       },
       "flaggedHosts": [],
       "judgeVerdicts": {
@@ -444,7 +460,10 @@
         "ranked": [
           "Tallow Grid"
         ],
-        "excluded": []
+        "excluded": [],
+        "decisionMakers": {
+          "Tallow Grid": []
+        }
       },
       "flaggedHosts": [],
       "judgeVerdicts": {
@@ -504,7 +523,10 @@
         "ranked": [
           "Brackenfield Labs"
         ],
-        "excluded": []
+        "excluded": [],
+        "decisionMakers": {
+          "Brackenfield Labs": []
+        }
       },
       "flaggedHosts": [],
       "judgeVerdicts": {
@@ -514,6 +536,104 @@
       "costUsdMicros": 82,
       "inputTokens": 994,
       "outputTokens": 305
+    },
+    "verify-people-roles": {
+      "kind": "verification",
+      "runStatus": "completed",
+      "failedTasks": [],
+      "companies": [
+        "Lumen Grid"
+      ],
+      "claims": [
+        {
+          "company": "Lumen Grid",
+          "attribute": "company.funding_round",
+          "statement": "Lumen Grid announced a seed round of EUR 3,000,000 on 2026-08-03, led by Arctic Ventures.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Lumen Grid",
+          "attribute": "company.hq_country",
+          "statement": "Lumen Grid is headquartered in Norway.",
+          "status": "probable",
+          "confidence": "medium",
+          "confidenceScore": 0.55,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Lumen Grid",
+          "attribute": "person.current_role",
+          "statement": "Jonas Dahl is Co-founder and CEO at Lumen Grid.",
+          "status": "rejected",
+          "confidence": null,
+          "confidenceScore": null,
+          "reasons": [
+            "VALUE_NOT_IN_QUOTE",
+            "JUDGE_CONTRADICTS"
+          ]
+        },
+        {
+          "company": "Lumen Grid",
+          "attribute": "person.current_role",
+          "statement": "Jonas Dahl is Co-founder and CTO at Lumen Grid.",
+          "status": "verified",
+          "confidence": "high",
+          "confidenceScore": 0.9,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        },
+        {
+          "company": "Lumen Grid",
+          "attribute": "person.current_role",
+          "statement": "Petra Ek is Head of sales at Lumen Grid.",
+          "status": "stale",
+          "confidence": null,
+          "confidenceScore": null,
+          "reasons": [
+            "SINGLE_SOURCE",
+            "SOURCE_TOO_OLD"
+          ]
+        },
+        {
+          "company": "Lumen Grid",
+          "attribute": "person.current_role",
+          "statement": "Sara Holm is Co-founder and CEO at Lumen Grid.",
+          "status": "verified",
+          "confidence": "high",
+          "confidenceScore": 0.9,
+          "reasons": [
+            "SINGLE_SOURCE"
+          ]
+        }
+      ],
+      "report": {
+        "ranked": [
+          "Lumen Grid"
+        ],
+        "excluded": [],
+        "decisionMakers": {
+          "Lumen Grid": [
+            "Sara Holm"
+          ]
+        }
+      },
+      "flaggedHosts": [],
+      "judgeVerdicts": {
+        "contradicts": 1,
+        "supports": 5
+      },
+      "llmCalls": 1,
+      "costUsdMicros": 0,
+      "inputTokens": 1220,
+      "outputTokens": 289
     }
   }
 }

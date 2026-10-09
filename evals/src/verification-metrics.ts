@@ -22,7 +22,12 @@ export interface VerificationMetrics {
     confidenceScore: number | null;
     reasons: string[];
   }[];
-  report: { ranked: string[]; excluded: { company: string; reason: string }[] } | null;
+  report: {
+    ranked: string[];
+    excluded: { company: string; reason: string }[];
+    /** Decision makers' full names per ranked company, in report order. */
+    decisionMakers: Record<string, string[]>;
+  } | null;
   flaggedHosts: string[];
   judgeVerdicts: Record<string, number>;
   llmCalls: number;
@@ -66,13 +71,24 @@ export async function collectVerificationMetrics(admin: pg.Client, runId: string
   ).rows;
   const artifact = (
     await admin.query<{
-      content: { companies: { companyId: string; rank: number }[]; excluded: { companyId: string; reason: string }[] };
+      content: {
+        companies: { companyId: string; rank: number; decisionMakers?: { personId: string }[] }[];
+        excluded: { companyId: string; reason: string }[];
+      };
     }>(
       `select content from public.artifacts where run_id = $1 and kind = 'prospect_report' and status = 'final'
        order by version desc limit 1`,
       [runId],
     )
   ).rows[0];
+  const people = (
+    await admin.query<{ id: string; full_name: string }>(
+      `select distinct p.id, p.full_name from public.people p join public.claims c on c.subject_person_id = p.id
+       where c.run_id = $1`,
+      [runId],
+    )
+  ).rows;
+  const personNames = new Map(people.map((p) => [p.id, p.full_name]));
   const flagged = (
     await admin.query<{ host: string }>(
       `select distinct s.host from public.sources s
@@ -120,6 +136,12 @@ export async function collectVerificationMetrics(admin: pg.Client, runId: string
             company: names.get(e.companyId) ?? e.companyId,
             reason: e.reason,
           })),
+          decisionMakers: Object.fromEntries(
+            artifact.content.companies.map((c) => [
+              names.get(c.companyId) ?? c.companyId,
+              (c.decisionMakers ?? []).map((d) => personNames.get(d.personId) ?? d.personId),
+            ]),
+          ),
         }
       : null,
     flaggedHosts: flagged.map((f) => f.host),
@@ -190,6 +212,11 @@ export function scoreVerification(
       if (!hit) failures.push(`${e.company} not excluded`);
       else if (!hit.reason.includes(e.reasonIncludes))
         failures.push(`${e.company} excluded for "${hit.reason}", expected "${e.reasonIncludes}"`);
+    }
+    for (const [company, people] of Object.entries(expect.report.decisionMakers ?? {})) {
+      const found = metrics.report.decisionMakers[company] ?? [];
+      if (JSON.stringify(found) !== JSON.stringify(people))
+        failures.push(`${company} decision makers ${JSON.stringify(found)}, expected ${JSON.stringify(people)}`);
     }
   }
 

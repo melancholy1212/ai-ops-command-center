@@ -13,6 +13,8 @@ import {
   ConfidenceLevel,
   HttpUrl,
   InterpretedCriteria,
+  IsoDate,
+  PersonRole,
   Timestamp,
   UsdMicros,
   VerificationReasonCode,
@@ -79,6 +81,21 @@ const CaseClaim = z.strictObject({
 });
 export type CaseClaim = z.infer<typeof CaseClaim>;
 
+/** A role a page names, by company name: the company's id is only known when the run has resolved it. */
+const PeopleCaseClaim = z.strictObject({
+  company: z.string().min(1),
+  fullName: z.string().min(3),
+  title: z.string().min(2),
+  role: PersonRole,
+  since: IsoDate.nullable().default(null),
+  rawValue: z.string().min(1),
+  evidence: z
+    .array(z.strictObject({ url: HttpUrl, quote: z.string().min(20) }))
+    .min(1)
+    .max(3),
+});
+export type PeopleCaseClaim = z.infer<typeof PeopleCaseClaim>;
+
 export const VerificationCase = z.strictObject({
   id: z.string().regex(/^[a-z0-9-]+$/),
   title: z.string().min(1),
@@ -97,6 +114,11 @@ export const VerificationCase = z.strictObject({
      * discovery pages, as on the web; the subject name picks the company.
      */
     profileClaims: z.array(CaseClaim).max(30).default([]),
+    /**
+     * Who the pages name (workflow version 3): the scripted people search of each company opens these pages and
+     * proposes these roles at the company it searches. Pages are fetchable as pages the user named.
+     */
+    peopleClaims: z.array(PeopleCaseClaim).max(30).default([]),
   }),
   fixtures: z.strictObject({ tools: z.string().min(1), model: z.string().min(1) }),
   expect: z.strictObject({
@@ -118,6 +140,8 @@ export const VerificationCase = z.strictObject({
     report: z.strictObject({
       ranked: z.array(z.string().min(1)),
       excluded: z.array(z.strictObject({ company: z.string().min(1), reasonIncludes: z.string().min(1) })),
+      /** For ranked companies: the decision makers' full names, in report order. */
+      decisionMakers: z.record(z.string(), z.array(z.string())).optional(),
     }),
     /** Hosts whose saved snapshot must carry the suspected_prompt_injection flag. */
     flaggedHosts: z.array(z.string().min(1)).default([]),

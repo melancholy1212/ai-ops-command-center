@@ -14,9 +14,31 @@ plan_run ─► approve_plan ─► discover_companies
          rank_and_analyze ─► draft_outreach × K ─► approve_outreach ─► compile_report ─► done
 ```
 
+## Workflow version 3 (implemented, Phase 5)
+
+New runs get version 3 (`CURRENT_WORKFLOW_VERSION`). It adds a people search after each profile:
+
+```
+plan_run ─► approve_plan ─► discover_companies ─► (profile_company ─► find_people ─► verify_entity) × top N ─► compile_report
+                                                  hard: profile → people, profile → verify; soft: people → verify
+```
+
+- `find_people` (People Discovery agent, web only until `find_company_people` exists): code hands the agent the
+  company's own pages read in this run (team pages are usually linked from them) and the brief's roles. The agent
+  proposes `person.current_role` claims about named people. Code keeps only role claims at this company about people
+  named with a full name, drops anything that looks like a contact detail (e-mail, phone number, link) and counts it,
+  resolves each name to a person of this company (same normalised name with a claim already anchored to the company,
+  else a new person: never on the name alone), and grounds and writes the claims like the company's own. A role quote
+  must name the person as well as the title.
+- Verification judges people claims with the company's (they are anchored to it) and applies the role policy
+  ([provenance.md](provenance.md#policy-v3)). A company with no verified or probable decision maker in the brief's
+  roles gets a `person.current_role` coverage gap. A failed people search does not hold the company's own facts back.
+- The report lists each ranked company's decision makers: people in the brief's roles with a verified or probable
+  current role, verified first.
+
 ## Workflow version 2 (implemented, Phase 5)
 
-New runs get version 2 (`CURRENT_WORKFLOW_VERSION`). A run keeps the version it was created with, so the graph of
+Runs created before version 3 keep this graph. A run keeps the version it was created with, so the graph of
 a run in flight never changes shape. Version 2 adds a company profile before each verification:
 
 ```

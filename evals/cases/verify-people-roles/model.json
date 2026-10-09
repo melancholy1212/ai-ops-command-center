@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "recordings": [
+    {
+      "hash": "d66b51c0fb6c73c468cbdb0338c2fa52ee3c92eea99ac04417952f325c46e166",
+      "recordedAt": "2026-10-09T16:21:34.530Z",
+      "providerAccount": "bazaarlink",
+      "model": "qwen/qwen3.7-flash:free",
+      "response": {
+        "text": "{\n \"verdicts\": [\n  {\n   \"index\": 0,\n   \"reason\": \"The quote confirms that Lumen Grid raised a EUR 3 million seed round led by Arctic Ventures.\",\n   \"verdict\": \"supports\"\n  },\n  {\n   \"index\": 1,\n   \"reason\": \"The quote explicitly states that Lumen Grid is headquartered in Oslo, Norway.\",\n   \"verdict\": \"supports\"\n  },\n  {\n   \"index\": 2,\n   \"reason\": \"The quote identifies Sara Holm as the CEO, contradicting the claim that Jonas Dahl holds this role.\",\n   \"verdict\": \"contradicts\"\n  },\n  {\n   \"index\": 3,\n   \"reason\": \"The quote explicitly states that Jonas Dahl is the co-founder and CTO.\",\n   \"verdict\": \"supports\"\n  },\n  {\n   \"index\": 4,\n   \"reason\": \"The quote identifies Petra Ek as the head of sales at Lumen Grid.\",\n   \"verdict\": \"supports\"\n  },\n  {\n   \"index\": 5,\n   \"reason\": \"The quote explicitly states that Sara Holm is the co-founder and CEO.\",\n   \"verdict\": \"supports\"\n  }\n ]\n}",
+        "toolCalls": [],
+        "stopReason": "end_turn",
+        "usage": {
+          "inputTokens": 1220,
+          "outputTokens": 289,
+          "reasoningTokens": null,
+          "cacheReadTokens": null,
+          "cacheWriteTokens": null
+        },
+        "cacheStatus": "not_supported",
+        "providerContent": {
+          "role": "assistant",
+          "content": "{\n \"verdicts\": [\n  {\n   \"index\": 0,\n   \"reason\": \"The quote confirms that Lumen Grid raised a EUR 3 million seed round led by Arctic Ventures.\",\n   \"verdict\": \"supports\"\n  },\n  {\n   \"index\": 1,\n   \"reason\": \"The quote explicitly states that Lumen Grid is headquartered in Oslo, Norway.\",\n   \"verdict\": \"supports\"\n  },\n  {\n   \"index\": 2,\n   \"reason\": \"The quote identifies Sara Holm as the CEO, contradicting the claim that Jonas Dahl holds this role.\",\n   \"verdict\": \"contradicts\"\n  },\n  {\n   \"index\": 3,\n   \"reason\": \"The quote explicitly states that Jonas Dahl is the co-founder and CTO.\",\n   \"verdict\": \"supports\"\n  },\n  {\n   \"index\": 4,\n   \"reason\": \"The quote identifies Petra Ek as the head of sales at Lumen Grid.\",\n   \"verdict\": \"supports\"\n  },\n  {\n   \"index\": 5,\n   \"reason\": \"The quote explicitly states that Sara Holm is the co-founder and CEO.\",\n   \"verdict\": \"supports\"\n  }\n ]\n}",
+          "tool_calls": []
+        }
+      }
+    }
+  ]
+}

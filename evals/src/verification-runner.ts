@@ -92,13 +92,31 @@ const cite = (claims: readonly CaseClaim[], sources: ReadonlyMap<string, string>
  * The scripted research agents, answering from each request alone (profiles run concurrently). Discovery opens
  * every page of the case in one turn, then proposes the case's claims citing the source ids the fetches returned.
  * A company's profile (workflow version 2) opens the pages of the case's profile claims about it, then proposes
- * them about the company its task names; with none, it submits an empty profile.
+ * them about the company its task names; with none, it submits an empty profile. A people search (version 3) does
+ * the same with the case's people claims for the company, naming the company by the id its task gives.
  */
 function scriptedAgents(evalCase: VerificationCase, discoveryUrls: readonly string[]): LlmProvider {
   const turn = (request: LlmRequest): LlmResponse => {
     const first = request.messages[0];
     const task = first?.role === 'user' ? first.content : '';
     const sources = fetchedSources(request);
+    const searched = /Find the decision makers of (.+?) \(companyId ([0-9a-f-]{36})\)/.exec(task);
+    if (searched) {
+      const [, name = '', companyId = ''] = searched;
+      const own = evalCase.input.peopleClaims.filter((c) => c.company.toLowerCase() === name.toLowerCase());
+      const urls = [...new Set(own.flatMap((c) => c.evidence.map((e) => e.url)))];
+      if (urls.length > 0 && sources.size === 0) return openPages(urls, 'people');
+      const claims = own.map((c) => ({
+        subject: { kind: 'new_person', fullName: c.fullName },
+        assertion: {
+          attribute: 'person.current_role',
+          value: { companyId, title: c.title, role: c.role, since: c.since },
+        },
+        rawValue: c.rawValue,
+        evidence: c.evidence.map((e) => ({ sourceId: sources.get(e.url) ?? NO_SOURCE, quote: e.quote })),
+      }));
+      return respond([{ id: 'submit_people', name: 'submit_result', argumentsJson: JSON.stringify({ claims }) }]);
+    }
     const profiled = /Profile this company: (.+) \(companyId ([0-9a-f-]{36})\)/.exec(task);
     if (!profiled) {
       if (sources.size === 0) return openPages(discoveryUrls, 'open');
@@ -160,6 +178,10 @@ export async function runVerificationCase(evalCase: VerificationCase, options: R
   }
   const fixtures = ToolFixtures.parse(await readJson(join(caseDir, evalCase.fixtures.tools)));
   const urls = [...new Set(evalCase.input.claims.flatMap((c) => c.evidence.map((e) => e.url)))];
+  // People pages are pages the user named too: a team page is often not linked from the news.
+  const peopleUrls = [...new Set(evalCase.input.peopleClaims.flatMap((c) => c.evidence.map((e) => e.url)))].filter(
+    (u) => !urls.includes(u),
+  );
 
   const harness = await createTestHarness();
   const tenant = await harness.createTenant(`eval-${evalCase.id}`);
@@ -171,7 +193,7 @@ export async function runVerificationCase(evalCase: VerificationCase, options: R
       projectId: tenant.projectId,
       objective: evalCase.input.objective,
       budget: DEFAULT_RUN_BUDGET,
-      seedUrls: urls,
+      seedUrls: [...urls, ...peopleUrls],
     });
     const actor = { kind: 'system' } as const;
     await withWorkspace(harness.db, tenant.workspaceId, async (tx) => {
@@ -253,6 +275,7 @@ export async function runVerificationCase(evalCase: VerificationCase, options: R
       handlers: {
         ...(all.discover_companies ? { discover_companies: all.discover_companies } : {}),
         ...(all.profile_company ? { profile_company: all.profile_company } : {}),
+        ...(all.find_people ? { find_people: all.find_people } : {}),
         ...(all.verify_entity ? { verify_entity: all.verify_entity } : {}),
         ...(all.compile_report ? { compile_report: all.compile_report } : {}),
       },

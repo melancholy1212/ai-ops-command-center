@@ -106,6 +106,9 @@ post-processing. No tools, no loop.
   contact details of any kind; titles as stated; role claims older than the policy window become `stale`.
 - **Output:** `ProposedClaim[]` with `new_person` subjects and `person.current_role` claims.
 - **Limits:** 8 turns / 20 tool calls.
+- **Implemented** as `people.discovery@1` (web only: the server does not offer `find_company_people` until registry
+  providers exist). Contact details are refused three times over: the loop sends a result carrying one back for
+  repair, salvage drops it at the last turn, and `persistPeople` drops and counts any that reach it.
 
 ### Planner
 - **Input:** objective, today's date, project defaults (sector keywords, countries, roles, weights), rejection

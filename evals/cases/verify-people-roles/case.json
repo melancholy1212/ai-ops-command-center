@@ -1,0 +1,185 @@
+{
+  "id": "verify-people-roles",
+  "title": "People on the company's own team page are verified; a title quoted next to someone else's name is rejected; an old article's role is stale",
+  "tags": ["verification", "coverage"],
+  "scope": "verification",
+  "synthetic": true,
+  "modes": ["replay-all", "replay-tools"],
+  "input": {
+    "objective": "Find seed-stage software startups in the Nordics that raised money in the last 12 months.",
+    "briefOverride": {
+      "sectorKeywords": ["software"],
+      "countries": ["SE", "NO", "DK", "FI", "IS"],
+      "fundingWindow": {
+        "from": "2025-10-01",
+        "to": "2026-09-30"
+      },
+      "fundingStages": ["pre_seed", "seed"],
+      "maxCompanies": 5,
+      "peopleRoles": ["ceo"],
+      "outreach": {
+        "enabled": false,
+        "maxCompanies": 0
+      }
+    },
+    "frozenNow": "2026-09-30T12:00:00.000Z",
+    "claims": [
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Lumen Grid",
+          "domainHint": "lumengrid.example"
+        },
+        "assertion": {
+          "attribute": "company.funding_round",
+          "value": {
+            "stage": "seed",
+            "amount": 3000000,
+            "currency": "EUR",
+            "announcedOn": "2026-08-03",
+            "leadInvestors": ["Arctic Ventures"],
+            "otherInvestors": []
+          }
+        },
+        "rawValue": "EUR 3 million seed round",
+        "evidence": [
+          {
+            "url": "https://nordicwire.example/2026/08/03/lumen-grid-seed",
+            "quote": "Oslo-based Lumen Grid has raised a EUR 3 million seed round led by Arctic Ventures"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "kind": "new_company",
+          "name": "Lumen Grid",
+          "domainHint": "lumengrid.example"
+        },
+        "assertion": {
+          "attribute": "company.hq_country",
+          "value": {
+            "country": "NO"
+          }
+        },
+        "rawValue": "Oslo, Norway",
+        "evidence": [
+          {
+            "url": "https://nordicwire.example/2026/08/03/lumen-grid-seed",
+            "quote": "Lumen Grid is headquartered in Oslo, Norway"
+          }
+        ]
+      }
+    ],
+    "peopleClaims": [
+      {
+        "company": "Lumen Grid",
+        "fullName": "Sara Holm",
+        "title": "Co-founder and CEO",
+        "role": "ceo",
+        "rawValue": "co-founder and CEO",
+        "evidence": [
+          {
+            "url": "https://lumengrid.example/team",
+            "quote": "Sara Holm, co-founder and CEO, started the company in Oslo in 2023"
+          }
+        ]
+      },
+      {
+        "company": "Lumen Grid",
+        "fullName": "Jonas Dahl",
+        "title": "Co-founder and CTO",
+        "role": "cto",
+        "rawValue": "co-founder and CTO",
+        "evidence": [
+          {
+            "url": "https://lumengrid.example/team",
+            "quote": "Jonas Dahl, co-founder and CTO, leads engineering"
+          }
+        ]
+      },
+      {
+        "company": "Lumen Grid",
+        "fullName": "Jonas Dahl",
+        "title": "Co-founder and CEO",
+        "role": "ceo",
+        "rawValue": "co-founder and CEO",
+        "evidence": [
+          {
+            "url": "https://lumengrid.example/team",
+            "quote": "Sara Holm, co-founder and CEO, started the company in Oslo in 2023"
+          }
+        ]
+      },
+      {
+        "company": "Lumen Grid",
+        "fullName": "Petra Ek",
+        "title": "Head of sales",
+        "role": "head_of_sales",
+        "rawValue": "head of sales",
+        "evidence": [
+          {
+            "url": "https://oldwire.example/2024/02/01/lumen-grid-sales",
+            "quote": "Lumen Grid's head of sales Petra Ek said the company would open an office in Stockholm"
+          }
+        ]
+      }
+    ]
+  },
+  "fixtures": {
+    "tools": "tools.json",
+    "model": "model.json"
+  },
+  "expect": {
+    "companies": ["Lumen Grid"],
+    "claims": [
+      {
+        "company": "Lumen Grid",
+        "attribute": "company.funding_round",
+        "status": "probable"
+      },
+      {
+        "company": "Lumen Grid",
+        "attribute": "company.hq_country",
+        "status": "probable"
+      },
+      {
+        "company": "Lumen Grid",
+        "attribute": "person.current_role",
+        "statementIncludes": "Sara Holm is Co-founder and CEO",
+        "status": "verified"
+      },
+      {
+        "company": "Lumen Grid",
+        "attribute": "person.current_role",
+        "statementIncludes": "Jonas Dahl is Co-founder and CTO",
+        "status": "verified"
+      },
+      {
+        "company": "Lumen Grid",
+        "attribute": "person.current_role",
+        "statementIncludes": "Jonas Dahl is Co-founder and CEO",
+        "status": "rejected",
+        "reasonsInclude": ["VALUE_NOT_IN_QUOTE"]
+      },
+      {
+        "company": "Lumen Grid",
+        "attribute": "person.current_role",
+        "statementIncludes": "Petra Ek",
+        "status": "stale",
+        "reasonsInclude": ["SOURCE_TOO_OLD"]
+      }
+    ],
+    "report": {
+      "ranked": ["Lumen Grid"],
+      "excluded": [],
+      "decisionMakers": {
+        "Lumen Grid": ["Sara Holm"]
+      }
+    },
+    "limits": {
+      "maxCostUsdMicros": 20000,
+      "maxLlmCalls": 6,
+      "maxWallClockMs": 120000
+    }
+  }
+}
